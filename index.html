@@ -1,0 +1,2323 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ほしよみ学習ナビ｜星と歩むパーソナル学習サポート</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Astronomy Engine (ブラウザ上で動く純粋な天文計算ライブラリ) -->
+    <script src="https://cdn.jsdelivr.net/npm/astronomy-engine@2.1.19/astronomy.browser.min.js"></script>
+    <!-- Google Fonts: Zen Maru Gothic (小学生向け) & Noto Sans JP (中学生・全体) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&family=Zen+Maru+Gothic:wght@500;700;900&display=swap" rel="stylesheet">
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        body {
+            font-family: 'Noto Sans JP', sans-serif;
+            transition: background-color 0.4s ease, color 0.4s ease;
+            overflow-x: hidden;
+        }
+        /* iOS Safari 等で date / time 入力枠が親カードからはみ出すのを防止 */
+        input[type="date"],
+        input[type="time"] {
+            max-width: 100%;
+            min-width: 0;
+            box-sizing: border-box;
+            -webkit-appearance: none;
+        }
+        .font-kids {
+            font-family: 'Zen Maru Gothic', sans-serif;
+        }
+        .font-teen {
+            font-family: 'Noto Sans JP', sans-serif;
+        }
+        /* 星のきらめきアニメーション */
+        @keyframes twinkle {
+            0%, 100% { opacity: 0.3; transform: scale(0.95); }
+            50% { opacity: 1; transform: scale(1.05); }
+        }
+        .star-twinkle {
+            animation: twinkle 3s infinite ease-in-out;
+        }
+        @keyframes popCelebrate {
+            0% { transform: scale(0.8); opacity: 0; }
+            50% { transform: scale(1.08); opacity: 1; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        .animate-celebrate {
+            animation: popCelebrate 0.45s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+        }
+    </style>
+</head>
+<body id="app-body" class="bg-amber-50/70 text-slate-800 min-h-screen pb-16">
+
+    <!-- ヘッダー -->
+    <header id="app-header" class="bg-gradient-to-r from-amber-400 via-orange-400 to-rose-400 text-white shadow-md transition-all duration-500">
+        <div class="max-w-4xl mx-auto px-4 py-5 flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div class="flex items-center gap-3">
+                <div class="bg-white/20 p-2.5 rounded-2xl backdrop-blur-sm">
+                    <i data-lucide="sparkles" class="w-7 h-7 text-yellow-100 star-twinkle"></i>
+                </div>
+                <div>
+                    <span id="header-badge" class="inline-block text-xs font-bold px-2.5 py-0.5 rounded-full bg-white/25 text-white mb-1">
+                        星の冒険クエスト・モード
+                    </span>
+                    <h1 id="header-title" class="text-xl sm:text-2xl font-bold tracking-tight font-kids">
+                        ほしよみ学習ナビ ✨
+                    </h1>
+                </div>
+            </div>
+
+            <!-- モード切替スイッチ -->
+            <div class="flex items-center bg-black/15 p-1 rounded-2xl backdrop-blur-sm">
+                <button id="btn-mode-kids" onclick="setMode('kids')" class="px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all bg-white text-orange-600 shadow-sm">
+                    🎒 小学生モード
+                </button>
+                <button id="btn-mode-teen" onclick="setMode('teen')" class="px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all text-white/90 hover:text-white">
+                    🎧 中学生モード
+                </button>
+            </div>
+        </div>
+    </header>
+
+<!-- ▼ ここからコピー ▼ -->
+<script>
+  (function() {
+    // 1. ここに好きな合言葉（鍵）を設定してください
+    const SECRET_KEY = "neroli"; 
+
+    // 2. あなたのnote記事のURL（鍵なしでアクセスされた時の案内先）
+    const NOTE_URL = "https://note.com"; 
+
+    const STORAGE_KEY = "app_unlocked_status";
+    const urlParams = new URLSearchParams(window.location.search);
+    const keyParam = urlParams.get("key");
+
+    // URLに正しい鍵がついているかチェック
+    if (keyParam === SECRET_KEY) {
+      // 正しければブラウザに「認証済み」を記憶させる
+      localStorage.setItem(STORAGE_KEY, SECRET_KEY);
+      // URLの末尾の「?key=...」を消してスッキリさせる（スクショ対策）
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+
+    // ブラウザに正しい鍵が記憶されているかチェック
+    const savedKey = localStorage.getItem(STORAGE_KEY);
+    if (savedKey !== SECRET_KEY) {
+      // 鍵がない場合は画面を書き換えてブロックする
+      document.addEventListener("DOMContentLoaded", function() {
+        document.body.innerHTML = `
+          <div style="text-align: center; padding: 50px 20px; font-family: sans-serif; line-height: 1.6;">
+            <h2>🔒 このアプリはnote購入者専用です</h2>
+            <p>noteの有料記事内に記載されている専用リンクからアクセスしてください。</p>
+            <a href="${NOTE_URL}" style="display: inline-block; margin-top: 20px; padding: 12px 24px; background: #2cb696; color: #fff; text-decoration: none; border-radius: 6px; font-weight: bold;">
+              noteの記事ページへ戻る
+            </a>
+          </div>
+        `;
+      });
+    }
+  })();
+</script>
+<!-- ▲ ここまでコピー ▲ -->
+
+
+
+    <!-- メインコンテンツ -->
+    <main class="max-w-4xl mx-auto px-4 mt-6 space-y-6">
+
+        <!-- 入力フォームカード -->
+        <section id="input-card" class="bg-white rounded-3xl shadow-sm border border-amber-100 p-5 sm:p-7 transition-all">
+            <div class="flex items-center justify-between mb-4">
+                <h2 id="form-heading" class="text-base sm:text-lg font-bold flex items-center gap-2 text-amber-900 font-kids">
+                    <i data-lucide="compass" class="w-5 h-5 text-orange-500"></i>
+                    <span>きみの星のデータを教えてね</span>
+                </h2>
+                <span class="text-xs text-slate-400">※ブラウザ内で安全に天文計算します</span>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <!-- 生年月日 -->
+                <div class="bg-slate-50/80 p-3.5 rounded-2xl border border-slate-100 min-w-0 overflow-hidden">
+                    <label for="birth-date" class="block text-xs font-bold text-slate-600 mb-1.5">
+                        生年月日 <span class="text-rose-500">*必須</span>
+                    </label>
+                    <input type="date" id="birth-date" value="2015-05-15"
+                        class="w-full max-w-full min-w-0 bg-white text-slate-800 border border-slate-200 rounded-xl px-3 py-2 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-orange-400">
+                    <p id="age-auto-hint" class="text-[11px] text-slate-500 mt-1.5">
+                        生年月日から学年モードを自動判定します
+                    </p>
+                </div>
+
+                <!-- 出生時間 -->
+                <div class="bg-slate-50/80 p-3.5 rounded-2xl border border-slate-100 min-w-0 overflow-hidden">
+                    <div class="flex items-center justify-between gap-1 mb-1.5">
+                        <label for="birth-time" class="block text-xs font-bold text-slate-600 shrink-0">
+                            出生時間
+                        </label>
+                        <label class="inline-flex items-center gap-1 cursor-pointer select-none">
+                            <input type="checkbox" id="unknown-time" checked onchange="toggleBirthTime()"
+                                class="rounded text-orange-500 focus:ring-orange-400 w-4 h-4 shrink-0">
+                            <span class="text-[11px] sm:text-xs font-medium text-slate-600">不明（正午で計算）</span>
+                        </label>
+                    </div>
+                    <input type="time" id="birth-time" value="12:00" disabled
+                        class="w-full max-w-full min-w-0 bg-slate-100 text-slate-500 border border-slate-200 rounded-xl px-3 py-2 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-orange-400 transition-colors">
+                    <p class="text-[11px] text-slate-500 mt-1.5">
+                        ※不明の場合は12:00で精密計算します
+                    </p>
+                </div>
+
+                <!-- 占いたい日付 -->
+                <div class="bg-slate-50/80 p-3.5 rounded-2xl border border-slate-100 min-w-0 overflow-hidden">
+                    <div class="flex items-center justify-between mb-1.5">
+                        <label for="target-date" class="block text-xs font-bold text-slate-600">
+                            占いたい日付
+                        </label>
+                        <button type="button" onclick="setToday()" class="text-[11px] font-bold text-orange-600 hover:underline">
+                            今日に戻す
+                        </button>
+                    </div>
+                    <input type="date" id="target-date"
+                        class="w-full max-w-full min-w-0 bg-white text-slate-800 border border-slate-200 rounded-xl px-3 py-2 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-orange-400">
+                    <p class="text-[11px] text-slate-500 mt-1.5">
+                        未来や過去の日の星回りもチェックできます
+                    </p>
+                </div>
+            </div>
+
+            <!-- エラー表示ボックス -->
+            <div id="error-box" class="hidden mt-4 p-3 rounded-2xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-medium flex items-center gap-2">
+                <i data-lucide="alert-circle" class="w-4 h-4 shrink-0"></i>
+                <span id="error-text">生年月日を入力してください。</span>
+            </div>
+
+            <!-- 実行ボタン -->
+            <div class="mt-5 flex justify-center">
+                <button id="btn-submit" onclick="calculateHoroscope(true)"
+                    class="w-full sm:w-auto px-8 py-3.5 rounded-2xl bg-gradient-to-r from-orange-500 to-rose-500 hover:from-orange-600 hover:to-rose-600 text-white font-bold text-sm sm:text-base shadow-md hover:shadow-lg transform active:scale-98 transition-all flex items-center justify-center gap-2 font-kids">
+                    <i data-lucide="wand-2" class="w-5 h-5"></i>
+                    <span id="submit-text">今日の星のミッションを見る！</span>
+                </button>
+            </div>
+        </section>
+
+        <!-- 鑑定結果エリア -->
+        <div id="result-area" class="space-y-6">
+
+            <!-- 1. 今日のコンディション＆学習予報 (T月 × N天体) -->
+            <section id="forecast-card" class="bg-white rounded-3xl shadow-sm border border-amber-100 overflow-hidden transition-all">
+                <div id="forecast-banner" class="px-5 py-4 bg-gradient-to-r from-amber-100/80 to-orange-100/80 border-b border-amber-200/50 flex flex-wrap items-center justify-between gap-2">
+                    <div class="flex items-center gap-2">
+                        <span id="weather-icon" class="text-2xl">☀️</span>
+                        <div>
+                            <p id="forecast-sub" class="text-xs font-bold text-orange-700">今日の心のエネルギー予報</p>
+                            <h3 id="forecast-title" class="text-base sm:text-lg font-bold text-slate-800 font-kids">
+                                読み込み中...
+                            </h3>
+                        </div>
+                    </div>
+                    <span id="aspect-badge" class="text-xs font-bold px-3 py-1 rounded-full bg-white text-orange-700 shadow-xs">
+                        T月 × N天体
+                    </span>
+                </div>
+
+                <div class="p-5 sm:p-6 space-y-4">
+                    <!-- メインメッセージ -->
+                    <div id="forecast-message-box" class="p-4 rounded-2xl bg-amber-50/70 border border-amber-100 text-sm sm:text-base leading-relaxed text-slate-700">
+                    </div>
+
+                    <!-- 保護者向けワンポイント（安心メモ） -->
+                    <div class="p-4 rounded-2xl bg-slate-50 border border-slate-200/70 flex items-start gap-3">
+                        <div class="bg-indigo-100 text-indigo-600 p-2 rounded-xl shrink-0 mt-0.5">
+                            <i data-lucide="heart-handshake" class="w-4 h-4"></i>
+                        </div>
+                        <div>
+                            <p class="text-xs font-bold text-indigo-900 mb-1">おうちの方への星メモ（見守りヒント）</p>
+                            <p id="parent-advice" class="text-xs sm:text-sm text-slate-600 leading-relaxed"></p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 2. 今日の学習ミッション＆例題 (T水星のサビアンシンボル) -->
+            <section id="mission-card" class="bg-white rounded-3xl shadow-sm border border-amber-100 overflow-hidden transition-all">
+                <div id="mission-banner" class="px-5 py-4 bg-gradient-to-r from-sky-100/80 to-indigo-100/80 border-b border-sky-200/50 flex flex-wrap items-center justify-between gap-2">
+                    <div class="flex items-center gap-2">
+                        <span class="text-2xl">🪐</span>
+                        <div>
+                            <p id="mission-sub" class="text-xs font-bold text-sky-800">今日の星のミッション（T水星サビアン）</p>
+                            <h3 id="sabian-degree-title" class="text-base sm:text-lg font-bold text-slate-800 font-kids">
+                                水星の度数シンボル
+                            </h3>
+                        </div>
+                    </div>
+                    <span id="sabian-number-badge" class="text-xs font-bold px-3 py-1 rounded-full bg-white text-sky-700 shadow-xs">
+                        サビアン 1度
+                    </span>
+                </div>
+
+                <div class="p-5 sm:p-6 space-y-4">
+                    <!-- サビアン詩文・テーマ -->
+                    <div class="flex items-start gap-3">
+                        <div class="bg-sky-100 text-sky-600 p-2 rounded-xl shrink-0 mt-0.5">
+                            <i data-lucide="book-open" class="w-5 h-5"></i>
+                        </div>
+                        <div>
+                            <p class="text-xs font-bold text-sky-700 mb-0.5">今日の頭の働き・星のテーマ</p>
+                            <p id="sabian-meaning" class="text-sm sm:text-base font-bold text-slate-800 leading-relaxed"></p>
+                        </div>
+                    </div>
+
+                    <!-- 具体的なミッション＆例題ボックス -->
+                    <div id="mission-example-box" class="p-4 sm:p-5 rounded-2xl bg-gradient-to-br from-sky-50 to-indigo-50/60 border border-sky-200/70 space-y-3">
+                        <div class="flex items-center justify-between">
+                            <span id="mission-tag" class="inline-flex items-center gap-1.5 text-xs font-bold px-2.5 py-1 rounded-lg bg-sky-600 text-white">
+                                <i data-lucide="flag" class="w-3.5 h-3.5"></i>
+                                <span>今日の5分ミッション</span>
+                            </span>
+                            <span id="mission-time-guide" class="text-xs font-bold text-sky-700">めやす：3〜5分</span>
+                        </div>
+                        <p id="mission-action" class="text-sm sm:text-base font-bold text-slate-800 leading-relaxed"></p>
+                        <div class="bg-white/90 rounded-xl p-3.5 border border-sky-100">
+                            <p class="text-xs font-bold text-slate-400 mb-1">💡 こんなふうにやってみよう（例題）</p>
+                            <p id="mission-example" class="text-xs sm:text-sm text-slate-700 font-medium leading-relaxed"></p>
+                        </div>
+                    </div>
+
+                    <!-- ③ 「今日できたね！」スタンプ・クエスト達成ボタン -->
+                    <div id="quest-complete-area" class="pt-2 space-y-3">
+                        <div class="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-amber-50 via-yellow-50 to-orange-50 border border-amber-200/80 flex flex-col sm:flex-row items-center justify-between gap-4">
+                            <div class="flex items-center gap-3 text-center sm:text-left">
+                                <div class="w-12 h-12 rounded-2xl bg-amber-400/20 flex items-center justify-center text-2xl shrink-0">
+                                    🏅
+                                </div>
+                                <div>
+                                    <p id="quest-counter-label" class="text-xs font-bold text-amber-800">
+                                        クリア回数：<span id="quest-count-num" class="text-base font-black text-orange-600">0</span> 回 ／ ポイント：<span id="quest-exp-num" class="text-base font-black text-orange-600">0</span> PT
+                                    </p>
+                                    <p id="quest-next-goal-text" class="text-[11px] font-bold text-amber-700 mt-0.5">
+                                        あと 5 回（50PT）で「ご褒美チケット」＆「雑学カード」ゲット！
+                                    </p>
+                                    <p id="quest-encourage-text" class="text-xs text-slate-600 mt-0.5">
+                                        ちょっとでも取り組めたら、下のボタンでスタンプを押そう！
+                                    </p>
+                                </div>
+                            </div>
+                            <button id="btn-quest-complete" onclick="completeQuest()"
+                                class="w-full sm:w-auto px-6 py-3 rounded-2xl bg-gradient-to-r from-amber-400 to-orange-500 hover:from-amber-500 hover:to-orange-600 text-white font-bold text-sm shadow-md hover:shadow-lg transform active:scale-95 transition-all flex items-center justify-center gap-2 shrink-0 font-kids">
+                                <span>✨ クエストクリア！（できたよ）</span>
+                            </button>
+                        </div>
+
+                        <!-- 達成時のお祝いメッセージ＆ご褒美出現枠 -->
+                        <div id="quest-celebration-box" class="hidden p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-emerald-50 to-teal-50 border-2 border-emerald-300 text-emerald-900 space-y-3 animate-celebrate">
+                            <div class="flex items-center gap-3">
+                                <span class="text-3xl shrink-0">🎉</span>
+                                <div>
+                                    <p id="celebration-title" class="text-sm sm:text-base font-bold text-emerald-800">すごい！＋10 PT ゲット！</p>
+                                    <p id="celebration-sub" class="text-xs text-emerald-700 mt-0.5">小さな一歩が大きな自信になるよ。今日もよくがんばったね！</p>
+                                </div>
+                            </div>
+
+                            <!-- 50PTごとのご褒美チケット出現カード -->
+                            <div id="reward-ticket-popup" class="hidden p-4 rounded-2xl bg-gradient-to-r from-amber-100 via-yellow-50 to-rose-100 border-2 border-amber-400 shadow-sm flex items-center gap-3.5">
+                                <div id="popup-ticket-icon" class="w-12 h-12 rounded-2xl bg-white flex items-center justify-center text-3xl shadow-xs shrink-0">🍬</div>
+                                <div class="flex-1">
+                                    <span id="popup-ticket-badge" class="inline-block text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-500 text-white mb-1">
+                                        🎊 50PT達成！おうちご褒美チケット獲得！
+                                    </span>
+                                    <h4 id="popup-ticket-title" class="text-sm sm:text-base font-black text-slate-800">好きなおやつ 1個リクエスト券</h4>
+                                    <p id="popup-ticket-desc" class="text-xs text-slate-600 mt-0.5">おうちの人に好きなおやつを1個リクエストできるよ！</p>
+                                </div>
+                            </div>
+
+                            <!-- 5回ごとの雑学カード出現カード -->
+                            <div id="reward-trivia-popup" class="hidden p-4 rounded-2xl bg-gradient-to-r from-indigo-100 via-sky-50 to-purple-100 border-2 border-indigo-400 shadow-sm space-y-1.5">
+                                <div class="flex items-center justify-between gap-2">
+                                    <span id="popup-trivia-badge" class="inline-flex items-center gap-1 text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-indigo-600 text-white">
+                                        ✨ 5回達成ボーナス！新しい雑学カード解放！
+                                    </span>
+                                    <span id="popup-trivia-num" class="text-xs font-bold text-indigo-700">No.1</span>
+                                </div>
+                                <h4 id="popup-trivia-title" class="text-sm sm:text-base font-bold text-indigo-950">💡 バナナの黒い点々</h4>
+                                <p id="popup-trivia-text" class="text-xs sm:text-sm text-slate-700 leading-relaxed"></p>
+                            </div>
+                        </div>
+
+                        <!-- ご褒美チケット＆雑学コレクションBOX（ボタンで開閉） -->
+                        <div class="p-3.5 sm:p-4 rounded-2xl bg-slate-50/95 border border-slate-200/80 space-y-3 text-slate-800">
+                            <div class="flex flex-wrap items-center justify-between gap-2">
+                                <div class="flex flex-wrap items-center gap-2">
+                                    <button type="button" id="btn-toggle-tickets" onclick="toggleCollectionPanel('tickets')"
+                                        class="px-3 py-2 rounded-xl text-xs font-bold bg-white text-amber-700 border border-amber-300 hover:bg-amber-50 shadow-2xs transition-all flex items-center gap-1">
+                                        <span>🎟️ ご褒美チケット (<span id="ticket-unlocked-count">0</span>/10)</span>
+                                        <span id="arrow-tickets" class="text-[10px]">▼見る</span>
+                                    </button>
+                                    <button type="button" id="btn-toggle-trivia" onclick="toggleCollectionPanel('trivia')"
+                                        class="px-3 py-2 rounded-xl text-xs font-bold bg-white text-indigo-700 border border-indigo-200 hover:bg-indigo-50 transition-all flex items-center gap-1">
+                                        <span>🃏 雑学図鑑 (<span id="trivia-unlocked-count">0</span>/30)</span>
+                                        <span id="arrow-trivia" class="text-[10px]">▼見る</span>
+                                    </button>
+                                </div>
+                                <button type="button" onclick="openTicketEditor()"
+                                    class="px-3 py-2 rounded-xl text-xs font-bold bg-white text-slate-600 border border-slate-300 hover:bg-slate-100 flex items-center gap-1 transition-all">
+                                    <i data-lucide="settings" class="w-3.5 h-3.5"></i>
+                                    <span>保護者用：ご褒美編集</span>
+                                </button>
+                            </div>
+
+                            <!-- チケット一覧パネル（初期状態は非表示） -->
+                            <div id="panel-tickets" class="hidden grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
+                                <!-- JSで50PT〜500PTチケットを描画 -->
+                            </div>
+
+                            <!-- 雑学カード図鑑パネル（初期状態は非表示） -->
+                            <div id="panel-trivia" class="hidden space-y-2.5 pt-1">
+                                <p class="text-[11px] text-slate-500">
+                                    クエストを <strong class="text-indigo-600">5回（50PT）クリアするごと</strong> に、新しい「へぇ〜！」雑学カードが1枚ずつ解放されます！（小学生モード・中学生モードそれぞれ30枚ずつ収録）
+                                </p>
+                                <div id="trivia-grid" class="grid grid-cols-1 sm:grid-cols-2 gap-2.5 max-h-80 overflow-y-auto pr-1">
+                                    <!-- JSで雑学カードを描画 -->
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 3. ② 集中できる「学習タイム＆環境」処方箋（ネイタル月・水星のエレメント別） -->
+            <section id="env-prescription-card" class="bg-white rounded-3xl shadow-sm border border-amber-100 overflow-hidden transition-all">
+                <div id="env-banner" class="px-5 py-4 bg-gradient-to-r from-emerald-100/70 to-teal-100/70 border-b border-emerald-200/50 flex flex-wrap items-center justify-between gap-2">
+                    <div class="flex items-center gap-2">
+                        <span class="text-2xl">🛋️</span>
+                        <div>
+                            <p id="env-sub" class="text-xs font-bold text-teal-800">机に向かわなくてもOK！星の環境づくり</p>
+                            <h3 id="env-title" class="text-base sm:text-lg font-bold text-slate-800 font-kids">
+                                集中できる「学習タイム＆環境」処方箋
+                            </h3>
+                        </div>
+                    </div>
+                    <span id="env-element-badge" class="text-xs font-bold px-3 py-1 rounded-full bg-white text-teal-700 shadow-xs">
+                        N月 × N水星エレメント
+                    </span>
+                </div>
+
+                <div class="p-5 sm:p-6 space-y-4">
+                    <p id="env-intro" class="text-xs sm:text-sm text-slate-600 leading-relaxed">
+                        「家だとダラダラしちゃう…」というときは、その子の星のエレメントに合ったスタイルに変えるだけで、驚くほどスッと頭に入りやすくなります。
+                    </p>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <!-- ネイタル月：心が安心する環境・タイミング -->
+                        <div id="moon-env-card" class="p-4 rounded-2xl bg-teal-50/60 border border-teal-100 space-y-2 transition-opacity duration-300">
+                            <div class="flex items-center justify-between gap-2">
+                                <span class="text-xs font-bold text-teal-800 flex items-center gap-1.5">
+                                    <span>🌙</span> 心の安心スイッチ（ネイタル月）
+                                </span>
+                                <span id="moon-element-tag" class="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-white text-teal-700 border border-teal-200 shrink-0">
+                                    水のサイン
+                                </span>
+                            </div>
+                            <p id="moon-unknown-note" class="hidden text-[11px] font-medium text-teal-700/80 bg-white/70 px-2.5 py-1 rounded-lg">
+                                ※出生時間不明のため12:00で計算しています（時間がわかるとより正確になります）
+                            </p>
+                            <h4 id="moon-env-title" class="text-sm font-bold text-slate-800"></h4>
+                            <p id="moon-env-desc" class="text-xs sm:text-sm text-slate-600 leading-relaxed"></p>
+                        </div>
+
+                        <!-- ネイタル水星：机に向かわない勉強スタイル -->
+                        <div class="p-4 rounded-2xl bg-cyan-50/60 border border-cyan-100 space-y-2">
+                            <div class="flex items-center justify-between gap-2">
+                                <span class="text-xs font-bold text-cyan-800 flex items-center gap-1.5">
+                                    <span>☿</span> 机に向かわない学び方（ネイタル水星）
+                                </span>
+                                <span id="mercury-element-tag" class="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-white text-cyan-700 border border-cyan-200 shrink-0">
+                                    風のサイン
+                                </span>
+                            </div>
+                            <h4 id="mercury-env-title" class="text-sm font-bold text-slate-800"></h4>
+                            <p id="mercury-env-desc" class="text-xs sm:text-sm text-slate-600 leading-relaxed"></p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 4. カレンダー機能（1週間バイオリズム ＆ 1か月ルナサイクル） -->
+            <section id="calendar-card" class="bg-white rounded-3xl shadow-sm border border-amber-100 overflow-hidden transition-all">
+                <div class="px-5 py-4 bg-gradient-to-r from-violet-100/80 to-fuchsia-100/70 border-b border-violet-200/50 flex flex-wrap items-center justify-between gap-3">
+                    <div class="flex items-center gap-2">
+                        <span class="text-2xl">🗓️</span>
+                        <div>
+                            <p id="calendar-sub" class="text-xs font-bold text-violet-800">見通しが立つと心がラクになる！星のスケジュール</p>
+                            <h3 id="calendar-title" class="text-base sm:text-lg font-bold text-slate-800 font-kids">
+                                星の学習リズム・カレンダー
+                            </h3>
+                        </div>
+                    </div>
+
+                    <!-- 1週間 / 1か月 タブ切り替え -->
+                    <div class="flex items-center bg-white/80 p-1 rounded-2xl border border-violet-200/60 shadow-2xs">
+                        <button type="button" id="tab-week" onclick="switchCalendarTab('week')"
+                            class="px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all bg-violet-600 text-white shadow-xs">
+                            📅 1週間リズム
+                        </button>
+                        <button type="button" id="tab-month" onclick="switchCalendarTab('month')"
+                            class="px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all text-slate-600 hover:text-violet-700">
+                            🌓 1か月ルナサイクル
+                        </button>
+                    </div>
+                </div>
+
+                <div class="p-5 sm:p-6">
+                    <!-- 1週間機能ビュー（トランジットの月 12星座移動・7日間カレンダー） -->
+                    <div id="view-week" class="space-y-4">
+                        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                            <p id="week-desc" class="text-xs sm:text-sm text-slate-600 leading-relaxed">
+                                月は約2日半ごとに星座を移動します。今週の7日間（月〜日）の「得意な学び方バイオリズム」を見て、無理のない計画を立ててみよう！
+                            </p>
+                            <span id="week-range-badge" class="text-xs font-bold px-3 py-1 rounded-full bg-violet-50 text-violet-700 border border-violet-200 shrink-0 self-start sm:self-auto">
+                                今週の学習天気予報
+                            </span>
+                        </div>
+
+                        <div id="week-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-7 gap-2.5">
+                            <!-- JSで月〜日の7日間カードを生成 -->
+                        </div>
+                    </div>
+
+                    <!-- 1か月機能ビュー（月の満ち欠け・ルナサイクル 約29.5日） -->
+                    <div id="view-month" class="hidden space-y-4">
+                        <div id="lunar-current-banner" class="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-indigo-900 via-violet-900 to-purple-900 text-white flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                            <div class="flex items-center gap-3.5">
+                                <span id="lunar-phase-icon" class="text-4xl shrink-0">🌓</span>
+                                <div>
+                                    <div class="flex items-center gap-2 flex-wrap">
+                                        <span class="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-white/20 text-amber-200">
+                                            現在のルナフェーズ（月齢 約<span id="lunar-age-num">7.4</span>日）
+                                        </span>
+                                        <span id="lunar-next-events" class="text-xs text-violet-200"></span>
+                                    </div>
+                                    <h4 id="lunar-phase-title" class="text-base sm:text-lg font-bold mt-1 font-kids">
+                                        上弦の月〜満月（吸収・ぐんぐん伸びる期）
+                                    </h4>
+                                </div>
+                            </div>
+                        </div>
+
+                        <p id="month-desc" class="text-xs sm:text-sm text-slate-600 leading-relaxed">
+                            約29.5日の月の満ち欠け（ルナサイクル）に合わせると、「今はインプットの時期」「今は休む時期」と1か月の波に自然に乗ることができます。
+                        </p>
+
+                        <div id="lunar-phases-grid" class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                            <!-- JSで4つのルナサイクルカードを生成 -->
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 5. その子の「学びの取扱説明書」（ネイタル4天体） -->
+            <section id="natal-card" class="bg-white rounded-3xl shadow-sm border border-amber-100 p-5 sm:p-6 transition-all">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
+                    <div>
+                        <p id="natal-sub" class="text-xs font-bold text-purple-600">生まれ持った星の資質</p>
+                        <h3 id="natal-title" class="text-base sm:text-lg font-bold text-slate-800 font-kids">
+                            きみだけの「学びの取扱説明書」
+                        </h3>
+                    </div>
+                    <span id="natal-caption" class="text-xs text-slate-400">出生図（ネイタル）の4天体から分析</span>
+                </div>
+
+                <div id="natal-grid" class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <!-- JSで4天体カードを生成 -->
+                </div>
+            </section>
+
+        </div>
+    </main>
+
+    <!-- 保護者用：ご褒美チケット編集モーダル -->
+    <div id="ticket-editor-modal" class="hidden fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl max-w-2xl w-full max-h-[88vh] flex flex-col shadow-2xl overflow-hidden text-slate-800">
+            <div class="px-5 py-4 bg-slate-800 text-white flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                    <i data-lucide="gift" class="w-5 h-5 text-amber-400"></i>
+                    <h3 class="text-base font-bold">保護者用：おうちご褒美チケットのカスタマイズ</h3>
+                </div>
+                <button type="button" onclick="closeTicketEditor()" class="p-1.5 rounded-xl hover:bg-white/15 text-white">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+            <div class="p-5 overflow-y-auto space-y-4 flex-1">
+                <p class="text-xs text-slate-600 leading-relaxed bg-amber-50 p-3 rounded-2xl border border-amber-200/70">
+                    お子さんの年齢やご家庭のルールに合わせて、50PT（5回達成）〜500PT（50回達成）のご褒美チケット内容を自由に書き換えられます。変更後は下の「保存する」を押してください。
+                </p>
+                <div id="ticket-editor-list" class="space-y-3">
+                    <!-- JSで編集フォームを生成 -->
+                </div>
+            </div>
+            <div class="px-5 py-3.5 bg-slate-50 border-t border-slate-200 flex flex-wrap items-center justify-between gap-2">
+                <button type="button" onclick="resetTicketsToDefault()"
+                    class="px-3.5 py-2 rounded-xl text-xs font-bold text-rose-600 hover:bg-rose-50 border border-rose-200 transition-all">
+                    初期設定に戻す
+                </button>
+                <div class="flex items-center gap-2">
+                    <button type="button" onclick="closeTicketEditor()"
+                        class="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-200 transition-all">
+                        キャンセル
+                    </button>
+                    <button type="button" onclick="saveTicketEdits()"
+                        class="px-5 py-2 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm transition-all">
+                        この内容で保存する
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ==========================================
+        // 1. 基本占星術マスターデータ
+        // ==========================================
+        const ZODIAC_SIGNS = [
+            { name: '牡羊座', symbol: '♈', element: 'fire', elementName: '火のサイン', quality: '直感・スピード・開拓心', style: '短いタイムアタックやクイズ形式でテンポよく進める' },
+            { name: '牡牛座', symbol: '♉', element: 'earth', elementName: '地のサイン', quality: '五感・マイペース・じっくり定着', style: 'お気に入りのノートや文具を使い、五感で味わうように進める' },
+            { name: '双子座', symbol: '♊', element: 'air', elementName: '風のサイン', quality: '好奇心・おしゃべり・情報収集', style: '気になることを検索したり、誰かに話したりしながら軽やかに学ぶ' },
+            { name: '蟹座', symbol: '♋', element: 'water', elementName: '水のサイン', quality: '安心感・共感・ストーリー記憶', style: '安心できる部屋で、物語や歴史のドラマに感情を乗せて覚える' },
+            { name: '獅子座', symbol: '♌', element: 'fire', elementName: '火のサイン', quality: '自己表現・ワクワク・創造力', style: '「先生役」になって説明したり、自分なりの作品・まとめを作る' },
+            { name: '乙女座', symbol: '♍', element: 'earth', elementName: '地のサイン', quality: '整理整頓・観察力・コツコツ分析', style: 'リスト化・分類・きれいなノートまとめなど小さな達成感を積み上げる' },
+            { name: '天秤座', symbol: '♎', element: 'air', elementName: '風のサイン', quality: 'バランス・美的センス・対話', style: '見た目がきれいな図解や動画を使い、バランスよく2教科を少しずつつまむ' },
+            { name: '蠍座', symbol: '♏', element: 'water', elementName: '水のサイン', quality: '深い集中力・探究心・本質を見抜く', style: '好きな1つのテーマを納得いくまでとことん深掘りする' },
+            { name: '射手座', symbol: '♐', element: 'fire', elementName: '火のサイン', quality: '冒険心・広い視野・自由な発想', style: '海外や宇宙・未来につながる大きなテーマから興味を広げる' },
+            { name: '山羊座', symbol: '♑', element: 'earth', elementName: '地のサイン', quality: '目標達成・仕組みづくり・実践力', style: 'ゴールを決めて1マスずつクリアしていくステップ方式' },
+            { name: '水瓶座', symbol: '♒', element: 'air', elementName: '風のサイン', quality: 'ひらめき・独自性・テクノロジー', style: 'アプリや動画・ユニークな視点を使って自分流にアレンジする' },
+            { name: '魚座', symbol: '♓', element: 'water', elementName: '水のサイン', quality: '想像力・音楽・やさしい感受性', style: 'BGMを流しながら・イラストやイメージをふくらませて感覚でつかむ' }
+        ];
+
+        const PLANET_ROLES = {
+            Sun: { name: '太陽', icon: '☀️', labelKids: 'じぶんらしさ・自信のタネ', labelTeen: '本来の資質・自己肯定感の軸' },
+            Mercury: { name: '水星', icon: '☿', labelKids: 'あたまの回転・おぼえ方のクセ', labelTeen: '思考スタイル・情報処理のクセ' },
+            Venus: { name: '金星', icon: '♀', labelKids: 'ワクワク・すきになる入り口', labelTeen: '興味のトリガー・楽しさの源泉' },
+            Mars: { name: '火星', icon: '♂', labelKids: 'やる気スイッチ・集中パワー', labelTeen: '行動エネルギー・集中が続く条件' }
+        };
+
+        const ELEMENT_PRESCRIPTIONS = {
+            fire: {
+                moon: {
+                    kids: { title: '「パッとやってパッと遊ぶ！」メリハリ空間が安心のひみつ', desc: 'じっと長時間すわっているとエネルギーがうずうずしちゃうタイプ。タイマーを5分〜10分だけセットして、「鳴ったらすぐ休憩！」にすると心がスッキリして集中できるよ。' },
+                    teen: { title: '短期集中×即リフレッシュのメリハリ環境がベスト', desc: '長時間机に縛られるとストレスが溜まりやすい気質です。「15分だけやってあとは自由」と時間を区切ったり、少し体を動かしてから取り組むとメンタルが安定します。' }
+                },
+                mercury: {
+                    kids: { title: 'クイズバトル＆声に出して「先生ごっこ」スタイル', desc: '机にむかわなくてもOK！リビングを歩きながら声に出して読んだり、おうちの人と早押しクイズ対決をしたりすると、あたまがピカッと回転するよ。' },
+                    teen: { title: 'アウトプット中心のスピード＆ゲーム感覚学習', desc: '黙々とノートを写すより、一問一答アプリやタイムアタック、誰かに要点を説明する「ティーチング法」が最も脳に定着しやすいスタイルです。' }
+                }
+            },
+            earth: {
+                moon: {
+                    kids: { title: 'お気に入りの場所・いつもの飲み物でホッと安心タイム', desc: 'いつもと同じ安心できる場所や、お気に入りのクッション・マグカップがあると心が落ち着くよ。まずは机の上を1つだけ片づけるとやる気スイッチが入りやすいんだ。' },
+                    teen: { title: '五感が心地よいルーティン空間を整える', desc: '室温・照明・お気に入りの文房具や飲み物など、物理的な快適さが心の安定に直結します。決まった時間帯に少しずつ進めるルーティンが安心感を生みます。' }
+                },
+                mercury: {
+                    kids: { title: '手を動かして「つくる・かく・ならべる」スタイル', desc: 'カードに書いて並べたり、図鑑を見ながらイラストを描いたり、実際に手を動かして「目に見える形」にするとスッと頭に入ってくるよ。' },
+                    teen: { title: 'チェックリスト化＆ステップごとの積み上げ学習', desc: '抽象的な話よりも具体例や手順が明確な教材と相性抜群。小さなタスクをリスト化して1つずつ消していくと達成感が得られます。' }
+                }
+            },
+            air: {
+                moon: {
+                    kids: { title: '風とおしのよいリビングで「おしゃべりしながら」が安心', desc: 'ひとりで静かすぎる部屋だとそわそわしちゃうことも。家族の気配があるリビングや、窓を開けて空気を入れかえたお部屋だと心が軽くなるよ。' },
+                    teen: { title: '閉塞感をなくし、カフェ風・開放的な空間で気分転換', desc: '同じ場所にずっとこもると思考が停滞しがちです。場所を変えたり、雑談を挟んだりして風通しを良くするとリラックスできます。' }
+                },
+                mercury: {
+                    kids: { title: '歩きながら音読・動画・おしゃべりクイズスタイル', desc: '机に座らなくて大丈夫！部屋を歩き回りながら音読したり、解説動画を見たり、家族に「ねえねえ知ってる？」と話すだけで立派な学びになるよ。' },
+                    teen: { title: 'マルチメディア活用＆対話・検索ベース学習', desc: '教科書1冊に絞るより、解説動画・Web検索・音声学習など複数の情報源を軽やかに行き来しながら全体像をつかむスタイルが向いています。' }
+                }
+            },
+            water: {
+                moon: {
+                    kids: { title: '好きな音楽やぬいぐるみと一緒に「やさしい時間」を', desc: '心がとっても繊細でやさしいから、静かなBGMを流したり、お気に入りのぬいぐるみや毛布にくるまったりして心がホッとするところから始めよう。' },
+                    teen: { title: '感情をケアするヒーリング環境＆15分スモールステップ', desc: 'その日の気分や心の波に集中力が左右されやすいタイプ。好きな音楽やアロマで心を整えてから「15分だけやる」と決めると無理なく入れます。' }
+                },
+                mercury: {
+                    kids: { title: '物語・イラスト・イメージで感じるアートスタイル', desc: '丸暗記よりも、歴史の物語に感情移入したり、色のペンでイラストを描いたりして「こころが動くこと」とつなげると忘れにくくなるよ。' },
+                    teen: { title: 'ストーリー理解＆イメージ連想型のインプット', desc: '無味乾燥な記号の暗記より、背景にあるストーリーや人の想いに触れることで深く理解できるタイプ。マインドマップや図解も効果的です。' }
+                }
+            }
+        };
+
+        const TRANSIT_MOON_ELEMENT_GUIDE = {
+            fire: {
+                tag: '短期集中・ゲーム感覚',
+                kids: '15分だけのタイムアタックやクイズ遊びがおすすめ！',
+                teen: '短期集中＆ゲーム感覚向き。15分だけのタイムアタックや一問一答でテンポよく進めよう。'
+            },
+            earth: {
+                tag: 'コツコツ作業・整理',
+                kids: '漢字や計算を少しだけ進めたり、ノートや机の整理に向く日！',
+                teen: 'コツコツ作業・基礎固め向き。漢字や計算練習、ノート整理や計画の見直しに最適。'
+            },
+            air: {
+                tag: 'おしゃべり・動画・調べもの',
+                kids: 'おしゃべりクイズや図鑑・動画で気になることを調べる日！',
+                teen: 'インプット＆対話向き。解説動画の視聴や読書、気になったテーマの調べものがおすすめ。'
+            },
+            water: {
+                tag: '物語・音楽・ゆったり休息',
+                kids: '物語や音楽を楽しんだり、こころをゆっくり休める日！',
+                teen: '感性と休息の日。歴史や文学のストーリーに触れたり、音楽を聴いてメンタルを整えよう。'
+            }
+        };
+
+        const LUNAR_CYCLE_PHASES = [
+            {
+                id: 'new_to_first',
+                icon: '🌒',
+                name: '新月〜上弦の月（種まき・インプット期）',
+                badge: '月齢 0〜7日ごろ',
+                kids: 'あたらしい図鑑やマンガ、きになることを「見るだけ・知るだけ」でバッチリな時期だよ！',
+                teen: '新しい単元や興味のあるテーマに触れるのにぴったりな時期。「まずは知るだけ・眺めるだけ」でOK。'
+            },
+            {
+                id: 'first_to_full',
+                icon: '🌔',
+                name: '上弦の月〜満月（吸収・ぐんぐん伸びる期）',
+                badge: '月齢 7〜15日ごろ',
+                kids: 'あたまのエネルギーがぐんぐん高まる時期！クイズや工作、自由研究にチャレンジしてみよう。',
+                teen: '頭が働きやすく、クイズや問題演習、調べ学習などを進めるのに向いているエネルギーが高まる時期。'
+            },
+            {
+                id: 'full_to_last',
+                icon: '🌖',
+                name: '満月〜下弦の月（アウトプット・振り返り期）',
+                badge: '月齢 15〜22日ごろ',
+                kids: 'おぼえたことをおうちの人に話したり、ノートにまとめたりする時期。深呼吸もたいせつにね。',
+                teen: '覚えたことを誰かに話したり、ノートにまとめたりして定着させる時期。気持ちが高ぶりやすいので深呼吸も大切。'
+            },
+            {
+                id: 'last_to_new',
+                icon: '🌘',
+                name: '下弦の月〜次の新月（休息・デトックス期）',
+                badge: '月齢 22〜29.5日ごろ',
+                kids: 'のうと心の充電期間！あたらしいことはつめこまず、すきな本を読んだりゴロゴロ休もう。',
+                teen: '脳と心の充電期間。新しいことは詰め込まず、好きな本を読んだりゆっくり休んだりするのが一番の学びになる時期。'
+            }
+        ];
+
+        const SIGN_MISSIONS = {
+            '牡羊座': {
+                kids: { action: 'ストップウォッチで「3分間だけ」気になるクイズや計算にチャレンジ！', example: '例：好きなアニメのキャラ名をローマ字で3つ書いてみよう！（ルフィ → Luffy）' },
+                teen: { action: 'タイマーを3分セットして、新しい単元の見出しや英単語を5個だけチェックしよう。', example: '例：好きな洋楽やアニメの英語タイトルの意味を1つ調べてみよう（Attack on Titan ＝ 進撃の巨人）' }
+            },
+            '牡牛座': {
+                kids: { action: 'お気に入りの飲み物を用意して、図鑑やイラストを1ページじっくり眺めよう。', example: '例：好きな動物や食べ物の名前を漢字や英語で1つだけ丁寧に書いてみよう。' },
+                teen: { action: '好きな音楽や飲み物でリラックスしながら、教科書の図や写真を1つじっくり観察しよう。', example: '例：身近なお菓子のパッケージにある英語表記や原材料表示から1つ豆知識を拾ってみよう。' }
+            },
+            '双子座': {
+                kids: { action: '「なんでだろう？」と思ったことを1つだけ検索したり、おうちの人に話してみよう！', example: '例：「空はどうして青いの？」「パンダは何を食べるの？」を調べて1行メモしよう。' },
+                teen: { action: '気になったニュースや雑学を1つ調べて、誰かに話せるように30秒で要約してみよう。', example: '例：スマホやSNSで使われているカタカナ語・略語（AI、SNSなど）の正式名称を1つ調べてみよう。' }
+            },
+            '蟹座': {
+                kids: { action: '家族の思い出や昔の話、歴史の物語を1つ読んで「どんな気持ちかな？」と想像しよう。', example: '例：おうちにある物（お米・お茶など）がどこで作られているか産地を見てみよう。' },
+                teen: { action: '歴史の人物や物語の登場人物の「感情」に注目して、1エピソードだけ読んでみよう。', example: '例：自分の生まれた年や家族の生まれた年に起きた歴史の出来事を1つ調べてみよう。' }
+            },
+            '獅子座': {
+                kids: { action: '自分が「先生」になったつもりで、今日知ったことを1つおうちの人に教えてあげよう！', example: '例：好きなゲームの必殺技やアイテムの名前をカッコよくノートに書いて発表しよう。' },
+                teen: { action: '自分が講師になったつもりで、得意なことや好きな雑学を1つ分かりやすく解説してみよう。', example: '例：好きな映画や作品のキャッチコピーを自分なりに英語や別の言葉で表現してみよう。' }
+            },
+            '乙女座': {
+                kids: { action: '机の上や筆箱の中を1分だけ整えてから、小さな問題を3問だけ解いてみよう。', example: '例：家の中にあるカタカナの言葉を5つ見つけてノートにリストアップしよう。' },
+                teen: { action: 'ノートやプリントの整理を5分だけ行い、次にやるべきポイントを3つに絞って書き出そう。', example: '例：身の回りの商品パッケージから単位（g, ml, kcalなど）を見つけて計算クイズを作ってみよう。' }
+            },
+            '天秤座': {
+                kids: { action: '2つのものを比べて「似ているところ」と「ちがうところ」を1つずつ見つけよう！', example: '例：犬と猫、またはリンゴとミカンの似ているところ・ちがうところを言ってみよう。' },
+                teen: { action: '2つの時代や2つの言葉など、対比する視点で5分だけテーマを眺めてみよう。', example: '例：和製英語と本来の英語の違いを1つ調べてみよう（例：ノートパソコン → laptop）。' }
+            },
+            '蠍座': {
+                kids: { action: '「これすごい！」と思った1つのテーマについて、ひみつを1つ深掘りして調べよう。', example: '例：深海魚や宇宙、恐竜など好きなジャンルの「一番すごい記録」を1つ見つけよう。' },
+                teen: { action: '表面的な暗記ではなく、「なぜこのルールや公式ができたのか？」の背景を1つ調べてみよう。', example: '例：漢字の成り立ち（象形文字など）や英単語の語源を1つだけ深く調べてみよう。' }
+            },
+            '射手座': {
+                kids: { action: '世界地図や地球儀、宇宙の写真を見て「行ってみたい場所」を1つ見つけよう！', example: '例：行ってみたい国のあいさつ（「こんにちは」「ありがとう」）を1つ声に出して言ってみよう。' },
+                teen: { action: '海外の文化や宇宙・科学の最新トピックなど、視野が広がる記事や動画を5分だけ見てみよう。', example: '例：世界の国名や首都、または宇宙の惑星の名前を英語スペルと一緒に3つ確認しよう。' }
+            },
+            '山羊座': {
+                kids: { action: '「今日はこれ1つだけやる！」とゴールを決めて、終わったらカレンダーに丸をつけよう。', example: '例：漢字を2文字だけ、または九九を1つの段だけ唱えてクリアしよう。' },
+                teen: { action: '5分で終わる小さなゴールを1つ設定し、達成したらチェックマークを入れて可視化しよう。', example: '例：基礎の計算や重要年号を3つだけ確認し、テストに出そうなポイントを1つメモしよう。' }
+            },
+            '水瓶座': {
+                kids: { action: '学習アプリや動画、クイズなど「いつもとちがう楽しいやり方」で1つ学んでみよう！', example: '例：身の回りの便利な道具（スマホ・電子レンジなど）がどうやって動くか想像してみよう。' },
+                teen: { action: '従来の勉強法にとらわれず、動画解説やAIとの対話などデジタルツールを使って1テーマ学ぼう。', example: '例：最新のテクノロジーやSDGsに関するキーワードを1つ選び、自分の意見を1行書いてみよう。' }
+            },
+            '魚座': {
+                kids: { action: '好きな音楽を聴きながら、今日浮かんだイメージや言葉をお絵かきノートに描いてみよう。', example: '例：好きな曲の歌詞に出てくる言葉を1つ選んで、その意味やイメージをふくらませよう。' },
+                teen: { action: 'リラックスできるBGMを流しながら、イラストや図解を使って感覚的にテーマをつかもう。', example: '例：好きな洋楽のワンフレーズや詩の一節を味わって、自分なりの日本語訳をつけてみよう。' }
+            }
+        };
+
+        // ==========================================
+        // 1.5 360度全サビアンシンボルデータベース【学習・知的好奇心特化版】
+        // ==========================================
+        const SABIAN_360 = [
+            // 牡羊座 (0-29)
+            '知らない分野や新しい単元の1ページ目をめくり、「これ何だろう？」と新鮮な好奇心が芽生えるとき',
+            'クイズやダジャレ、イラストなど、ユーモアや自分なりの表現を取り入れて楽しく学ぶとき',
+            'これまで覚えた知識や得意な単元を振り返り、「自分にもできることがある」と学びの土台を確かめるとき',
+            'お気に入りの参考書や動画、安心できる自分の部屋で、好きなテーマに深く集中するとき',
+            '「こんなことできたら面白そう！」と自由な発想を広げ、教科書の枠を超えたアイデアが湧くとき',
+            '頭の中の情報がスッキリ整理され、「今日はこれをやってみよう」と学ぶ方向性が見えてくるとき',
+            '「じっくり読む時間」と「手を動かして解く時間」など、2つの学び方をバランスよく切り替えるとき',
+            '最新のニュースや科学の話題など、これからの未来につながる新しい情報にアンテナを張るとき',
+            '表面的な暗記だけでなく、「どうしてそうなるの？」と仕組みの本質をじっと見抜く力が働くとき',
+            '今まで難しいと思っていた公式やルールを自分なりの言葉に置き換えて、新しい解き方を見つけるとき',
+            '「どの教科からやるか自分で決める！」と主体性を発揮し、自分のペースで学びをリードできるとき',
+            '家族や好きな解説動画の先生と歩調を合わせるように、無理のないリズムでスッと頭に入るとき',
+            '勢いで問題を解き進めるのを一度止め、「何がわかっていて、どこでつまずいたか」を冷静に見直すとき',
+            '「やりたい気持ち」と「休みたい気持ち」のバランスをとりながら、心が落ち着く範囲で机に向かうとき',
+            '毎日5分の漢字や計算、ノートまとめなど、小さな習慣をコツコツ続けることで集中力が育つとき',
+            '「勉強しなきゃ」というプレッシャーを手放し、ゲームやパズル感覚で純粋に知的な遊びを楽しむとき',
+            '周りの進度と比べるのをやめ、自分が本当に納得できるまで一つの疑問と静かに向き合うとき',
+            '張り詰めていた集中力をふっと緩め、何もしない休憩時間の中で脳に知識を定着させるとき',
+            '物語の本や歴史のマンガ、空想の世界にたっぷり浸り、豊かな想像力から学ぶエネルギーをもらうとき',
+            '心が疲れているときは無理に詰め込まず、図鑑の動物や優しい物語に触れて知性を癒やすとき',
+            '「ちょっと難しい問題にチャレンジしてみよう！」と前向きな意欲が湧き、一歩踏み出せるとき',
+            '「あれもこれも知りたい！」と好奇心が大きく広がり、図鑑や検索で気になることを次々調べるとき',
+            '誰かに見せるためではなく、自分だけのノートや頭の中で好きな知識をじっくり温めて育てるとき',
+            '苦手意識のあった教科にも新しい視点という風が吹き込み、思いがけない「わかった！」が舞い込むとき',
+            '「難しいけれどやってみたい」と「今の自分の実力」のちょうどいい着地点を見つけて取り組むとき',
+            '自分がすでに持っている知識や理解力の豊かさに気づき、安心して次のステップへ進むとき',
+            '以前間違えた問題や苦手だった単元に、新しい工夫やイメージを使ってリベンジを果たすとき',
+            '「完璧に覚えなきゃ」という肩の荷を下ろし、「今日はこれだけ知れたら十分」と気楽に学ぶとき',
+            '音楽や自然なリズムに身を委ねるように、力を抜いたリラックス状態でスラスラと吸収できるとき',
+            'これまで少しずつ積み重ねてきた基礎知識がしっかり根を張り、次の新しい学びへ備えるとき',
+
+            // 牡牛座 (30-59)
+            '生まれ持った感性や「これ好き！」という直感を頼りに、興味のある分野へ自然に手が伸びるとき',
+            'ハッとするような新しい発見や「なるほど！」という驚きをきっかけに、頭がシャキッと目覚めるとき',
+            'お気に入りの飲み物や落ち着く空間を用意し、心と身体の緊張をほぐしてからゆっくり学び始めるとき',
+            '日常の何気ない疑問や自分の得意分野の中に、学びにつながる思いがけないヒントを見つけるとき',
+            '「このやり方でやらなきゃ」という古いこだわりを手放し、真っ白な気持ちで新しい知識を受け入れるとき',
+            '身の回りの生活と教科書の知識をつなげて考え、無理なく社会や世界への興味を広げていくとき',
+            '自分の理解力を信じ、わかりやすい解説や周りのサポートを素直に受け取ってグンと伸びるとき',
+            '先のテストや進度の心配は手放し、今目の前にある1問や1ページをじっくり味わって取り組むとき',
+            '好きな文房具や心地よいアイテムに囲まれて気分が上がり、自分らしいペースで学びが捗るとき',
+            '勉強への苦手意識や疲れを優しくケアし、誰かと教え合ったり共有したりして温かく学ぶとき',
+            '興味を持ったテーマに毎日少しずつ触れ、お気に入りの知識をじっくり大切に育てていくとき',
+            '「こんな世界もあるんだ！」と外の広い知識に目が向き、軽やかな気分で新しいジャンルを覗くとき',
+            'わからない問題や不安を一人で抱え込まず、家族やAI・解説に頼りながら一緒に解決していくとき',
+            '正解を急がず、実験や工作、試行錯誤そのものを楽しみながら自分の感覚で理解を確かめるとき',
+            '自分のこだわりや美意識を大切にし、少し背伸びした専門書や大人っぽい教養に触れてみるとき',
+            '「どうしてこういう仕組みなんだろう？」と物事の背景や理由を奥深くまで探究したくなるとき',
+            '「やらなきゃいけない勉強」と「本当に知りたいこと」のバランスを見つめ直し、自分の軸を整えるとき',
+            'もう使い終わった古いノートや頭の中のモヤモヤを整理し、スッキリした状態で学び直すとき',
+            '真っ白なノートに自分の言葉でまとめ直すように、ゼロから自分だけの学びの地図をつくるとき',
+            '「難しい」という重苦しい気分が風のように流れ去り、軽やかな頭でスッと理解できるとき',
+            '本や記事、動画の言葉の中から、今の自分の疑問にぴったり答えてくれる大切なヒントを受け取るとき',
+            '一度つまずいて諦めそうになっても、理解の糸口となる安心のサインがちゃんと見つかるようになるとき',
+            '自分の中に眠っている観察力や記憶力の良さを活かし、少しずつ学びへの自信を取り戻すとき',
+            '周りのスピードに惑わされず、「自分は自分のペースで理解する」という芯の強さを守るとき',
+            '生活リズムと学習のペースが穏やかに整い、安心できる環境の中でじっくり知識を蓄えるとき',
+            '学んだことや「面白い！」と思った発見を、大切な人に素直な言葉でシェアして喜ばれるとき',
+            '覚えたての知識やちょっとした豆知識を活かして、身近な人とクイズや会話を楽しめるとき',
+            '一度離れていた教科や以前好きだったテーマに再び興味が湧き、前向きな意欲が戻ってくるとき',
+            '信頼できる人と歩調を合わせながら、目の前の課題や基礎練習をコツコツ着実に積み上げるとき',
+            'これまで積み上げてきた知識や得意分野に誇りを持ち、自分なりの表現で堂々とアウトプットするとき',
+
+            // 双子座 (60-89)
+            '水面の奥まで見通すように、興味を持ったテーマの核心へスッと意識が潜り込み、鋭い理解力が働くとき',
+            '「次はどうなるんだろう？」とワクワクしながら、新しい単元や未知のジャンルへ軽やかに飛び込むとき',
+            '好きな街並みや文化、暮らしの工夫など、身の回りの美しいものや楽しい話題から学びが広がるとき',
+            'お気に入りの本や図鑑、参考書を広げ、知識の世界を旅するように楽しくページをめくるとき',
+            '気になるテーマの面白さや魅力を、生き生きとした言葉やイラストで誰かに伝えたくなるとき',
+            '「これとこれはどう繋がっているんだろう？」と、バラバラだった知識の点と線をつないで探究するとき',
+            '家族や安心できる人と会話のキャッチボールをしながら、楽しく自然に知識が身につくとき',
+            'スマホやパソコン、学習アプリなどのデジタルツールを上手に使いこなし、効率よく調べ学習をするとき',
+            '「よし、今日はここまでやってみよう！」と的を絞って集中し、狙い通りに理解を深めるとき',
+            '難しい問題や長い文章にもひるまず、ゲームを攻略するような感覚で果敢にチャレンジできるとき',
+            '「どうしてだろう？」という純粋な疑問から出発し、自分なりの実験や観察で答えを確かめるとき',
+            '既存のやり方にとらわれず、「こんな覚え方もアリかも！」とユニークな発想で楽しく工夫するとき',
+            '憧れの作家や解説者の言葉に触れ、自分もこんなふうに表現してみたいと知的な刺激を受けるとき',
+            '言葉の壁や距離を超えて、誰かと気持ちを分かり合ったり、新しいコミュニケーションを楽しんだりするとき',
+            '気になったことはすぐに会話や質問にして確かめ、軽やかなやり取りの中で頭がスッキリするとき',
+            '「何が一番大切なポイントかな？」と情報を整理し、わかりやすい言葉で要点をまとめられるとき',
+            'これまでの子供っぽい学び方から一歩成長し、少し大人びた視点や教養に触れてワクワクするとき',
+            '外国語や異文化の言葉、新しい専門用語など、普段使わない言葉の響きや意味を楽しく覚えるとき',
+            '歴史の物語や昔の人々の知恵に触れ、時代を超えた知識のつながりにロマンを感じるとき',
+            'いろいろな分野の知識を自由に組み合わせ、自分だけのオリジナルなまとめや作品をつくるとき',
+            '頭の中で考えていたアイデアを実際に紙に書き出したり、声に出して練習したりして形にするとき',
+            '無理に机にしがみつくのをやめ、音楽を聴いたり散歩したりしながらリラックスして脳を休めるとき',
+            '静かな環境で自分の内面と向き合い、今日学んだことや感じたことをじっくり味わうとき',
+            '頭の中の余計な緊張がほぐれ、まるで深呼吸をするように新鮮な知識がスッと入ってくるるとき',
+            '自分の得意な分野や好きな知識を整理し、誰かから質問されても自信を持って答えられるとき',
+            '季節の移り変わりや自然の美しさを感じるように、五感を使って豊かな感性から学ぶとき',
+            'これまでモヤモヤしていた疑問が晴れ、新しい視界が開けてスッキリした気持ちで次へ進めるときの',
+            '「勉強しなきゃ」という重荷を下ろし、自由な心で好きな本や動画の世界を楽しめるるとき',
+            '小さな発見や「わかった！」という喜びを大切にし、自分のペースで少しずつ知性を育てるとき',
+            'これまで集めたたくさんの知識や経験がひとつに繋がり、新しい学びのステージへ軽やかに踏み出すとき',
+
+            // 蟹座 (90-119)
+            '「今までのやり方を変えてみよう！」と心が切り替わり、新しい学びのスタイルへ一歩踏み出すとき',
+            '広い世界や未知のテーマに目を向け、今の自分の場所からワクワクしながら未来を想像するとき',
+            '好きな物語や冒険のストーリーに心を重ね、登場人物と一緒に旅をするように楽しく学ぶとき',
+            '自分の感情や「これ好き！」「嫌だな」という素直な気持ちを大切にしながら、無理なく机に向かうとき',
+            '家族やペット、お気に入りのぬいぐるみなど、安心できる存在に見守られながらホッとして学ぶとき',
+            '自分の得意なことや好きな知識を大切に守り育て、自信という土台をしっかり固めるとき',
+            '心の中のモヤモヤや不安がすーっと晴れていき、穏やかで優しい気持ちで本を開けるとき',
+            '「ちょっとやってみようかな」と気軽な気持ちでスタートし、小さな一歩を軽やかに踏み出すとき',
+            '真っ白な画用紙やノートに自由な発想を広げるように、伸び伸びと自分らしい表現を楽しむとき',
+            '自分が興味を持ったテーマや「これ面白い！」と思った発見を、大切な人にわかりやすく伝えるとき',
+            '身近な人の優しさやサポートに感謝しながら、温かい気持ちで一緒にクイズや会話を楽しめるとき',
+            '少し大人っぽい教養や社会の仕組みに触れ、「なるほど、そういうことか！」と視野が広がるとき',
+            'これまで学んだことや自分の成長を振り返り、「ちゃんと前に進んでいるな」と静かに実感するとき',
+            '長い歴史や変わらない自然の法則に触れ、落ち着いた安心感の中でじっくり知識を深めるとき',
+            '頑張りすぎた心と頭を美味しいおやつや休憩でたっぷり労わり、エネルギーをチャージするとき',
+            '「次はこれを調べてみたい！」と心の奥から自然な意欲が湧き上がり、前向きな気持ちになるとき',
+            '一つのテーマから枝分かれするように好奇心が広がり、関連する知識を次々と吸収していくとき',
+            '今の自分にぴったりのわかりやすい教材やヒントに出会い、パズルのピースがカチッとはまるとき',
+            '家族や信頼できる人との温かいやり取りの中で、学びへの安心感とやる気が自然と育つとき',
+            '日本の文化や地域の歴史、暮らしの知恵など、身近で親しみやすいテーマから楽しく学ぶとき',
+            '「みんなと同じじゃなくても大丈夫」と自分の個性を認め、のびのびと好きな分野を伸ばすとき',
+            '焦らずのんびりと自分のペースを守り、心が満たされる時間の中でゆっくり知性を育むとき',
+            '自分が身につけた知識やスキルを誰かのために役立てたいと思い、優しい意欲が湧くとき',
+            '新しい環境や少し難しい課題にも、心の準備を整えて落ち着いて向き合えるとき',
+            'これまでバラバラだった知識や経験が心の中でひとつにまとまり、深い納得感が得られるとき',
+            '好きな本や映画、音楽の世界にたっぷり浸り、豊かな感受性と想像力を養うとき',
+            '心が疲れやすいときは無理をせず、安心できるお部屋でゆっくり休んでエネルギーを蓄えるとき',
+            '日常の小さな出来事や家族との会話の中に、大切な学びのヒントが隠れていることに気づくとき',
+            '自分の内面とじっくり対話し、「本当に知りたいこと」「大切にしたいこと」を見つめ直すとき',
+            'これまで積み重ねてきた経験と自信を胸に、新しい挑戦へ向かって堂々と一歩を踏み出すとき',
+
+            // 獅子座 (120-149)
+            '「これ面白い！」「やってみたい！」という純粋なワクワク感が湧き上がり、夢中で取り組めるとき',
+            '少し疲れを感じたら無理せずペースを落とし、心と身体のコンディションを整えながら学ぶとき',
+            '自分らしい個性やセンスを活かして、ノートをカラフルにまとめたり楽しく工夫したりするとき',
+            '好きなキャラクターや憧れの人のように、カッコよく堂々とした気持ちでクイズや問題に挑むとき',
+            '「どうすればもっと楽しく覚えられるかな？」と自分なりのルールや遊び心を取り入れて学ぶとき',
+            '流行や周りのペースに流されず、「今の自分にとって本当に大切な学び」を落ち着いて選ぶとき',
+            '宇宙の神秘や自然の壮大さなど、スケールが大きくロマンあふれるテーマに心が惹かれるとき',
+            '「これだけは誰にも負けない！」という好きな分野や得意な知識を誇りに思い、さらに深めるとき',
+            '自由な発想でイラストを描いたり物語を作ったりしながら、創造力を全開にして学ぶとき',
+            '朝の光を感じるように頭がスッキリ目覚め、新しい知識を気持ちよく吸収できるとき',
+            '「こんなことできたら楽しいな！」と子供のような無邪気な好奇心で実験や工作に取り組むとき',
+            '家族や友達と楽しい時間を共有しながら、笑い声の中で自然と新しい言葉を覚えるとき',
+            '憧れの先生や解説動画の分かりやすい説明に刺激を受け、自分もやってみようと意欲が湧くとき',
+            '自分の気持ちや考えを素直な言葉で表現し、誰かに聞いてもらうことで自信が深まるとき',
+            'お祭りやイベントのようにワクワクする気分で、好きなテーマの調べものや作品づくりを楽しむとき',
+            '難しい問題にぶつかっても諦めず、工夫と粘り強さで「できた！」という達成感を味わうとき',
+            '同じ興味を持つ仲間や家族と感想を分かち合い、温かい応援の中で学びが楽しくなるとき',
+            '自分が身につけた知識や得意技を誰かに披露して、「すごいね！」と喜ばれるとき',
+            '好きな音楽やリズムに合わせて体を動かしながら、リラックスした気分で楽しく暗記するとき',
+            '太陽の光を浴びるように前向きなエネルギーが満ちてきて、自然と机に向かいたくなるとき',
+            '「よし、チャレンジしてみよう！」と勇気を出して、少し背伸びしたテーマに一歩踏み出すとき',
+            '自分の得意なことや好きな知識を誰かのために役立て、温かいやりがいを感じるとき',
+            'サーカスやマジックを見るような驚きと発見があり、知的好奇心がキラキラ輝き出すとき',
+            '外の世界への意識を少しお休みして、自分だけの静かな空間で好きなことにじっくり集中するとき',
+            '大きな目標や夢を思い描きながら、「まずは今日の5分から！」と楽しくスタートを切るとき',
+            'これまでコツコツ努力してきた成果が実を結び、「自分にもできた！」と大きな自信になるとき',
+            '夜明けの空が明るくなるように、わからなかった単元の理解が少しずつクリアになっていくとき',
+            '自然の中の生き物や植物を観察するように、小さな変化や発見に目を輝かせて学ぶとき',
+            '温かい人の優しさや励ましに触れ、心がほぐれて前向きな学習意欲が戻ってくるとき',
+            '自分が学んだことや感じたことを素直な言葉でシェアし、周りの人と喜びを分かち合うとき',
+
+            // 乙女座 (150-179)
+            '細かな違いや特徴に気づく観察力が冴え、図鑑や資料の細かいところまでじっくり読み込めるるとき',
+            '「何がわかっていて、何がわからないか」がハッキリ見え、スッキリ整理された状態で学べるとき',
+            '困ったときやわからないときは一人で抱え込まず、家族や優しい解説に頼って安心できるとき',
+            '同じ趣味や興味を持つ仲間、家族と楽しくおしゃべりしながら、自然と知識が広がるとき',
+            '頭の中で思い描いたイメージを、イラストや図、マインドマップにしてわかりやすく整理するとき',
+            '「ちょっと休憩して気分転換しよう！」と楽しい遊びやリラックスタイムを上手に挟めるとき',
+            '自分の考えや調べたことを自信を持って発表したり、わかりやすい言葉で説明したりできるとき',
+            '新しい単元や初めてのツールにも興味津々で、「まずは触ってみよう！」と一歩踏み出せるとき',
+            'ペンを動かしてイラストを描いたり、ノートを丁寧にまとめたりする作業が楽しく捗るとき',
+            '表面的な暗記だけでなく、「どうしてそうなるの？」と一歩踏み込んで深く理解しようとするとき',
+            '憧れの人物や好きな作品のテーマに触れ、「自分もこんなふうになりたい」と意欲が湧くとき',
+            '自然の仕組みや科学の不思議など、知れば知るほど面白い奥深い世界にワクワクするとき',
+            '強い集中力と探究心が発揮され、一つのテーマや問題にじっくり腰を据えて取り組めるとき',
+            '自分のルーツや家族の歴史、昔からの知恵に触れ、落ち着いた気持ちで学びを深めるとき',
+            '机の上や筆箱の中をきれいに整えることで気持ちもスッキリし、集中力がグンと高まるとき',
+            '可愛らしい文房具や動物たちの図鑑など、心が和むアイテムと一緒に楽しく机に向かうとき',
+            '火山が噴火するように、これまで溜めていた好奇心やアイデアが一気に溢れ出して形になるとき',
+            'パズルやクイズを解くようなゲーム感覚で、楽しみながら頭の体操ができるとき',
+            '自分のペースやリズムを大切に守り、周りのスピードに惑わされずに着実に進めるとき',
+            '家族や信頼できる人と協力しながら、一緒に課題をクリアする達成感を味わえるとき',
+            '「今日はこれを3問だけ！」と小さな目標を決め、一つずつ確実にクリアしていくとき',
+            '自分の得意分野やこれまで積み上げた知識に誇りを持ち、堂々とアウトプットできるとき',
+            '動物や自然への優しいまなざしを持ち、生き物の生態や環境のテーマから楽しく学ぶとき',
+            '難しいことは一旦お休みして、絵本や優しい物語を読みながら心をゆったり癒やすとき',
+            '「やらなきゃいけないこと」をスッキリ整理し、本当に大切なポイントだけに集中できるとき',
+            '丁寧なノートづくりやきれいな字を書くことなど、静かな作業に心が落ち着くとき',
+            '温かいお茶やお気に入りの空間でホッと一息つきながら、リラックスした状態で本を読むとき',
+            '「完璧じゃなくても大丈夫」と肩の力を抜き、今の自分にできる範囲で気楽に取り組むとき',
+            'これまで学んだ知識の中から大切なエッセンスを取り出し、自分なりの言葉でまとめるとき',
+            '目の前の1問や1ページに心を込めて丁寧に取り組み、静かな満足感を味わえるとき',
+
+            // 天秤座 (180-209)
+            '大切な知識や好きなテーマを自分の言葉で分かりやすく表現し、誰かに伝えたくなるとき',
+            '過去の学びや経験が今の自分の力になっていることに気づき、新しいステップへ進めるときの',
+            '新しい知識や新鮮なアイデアが風のように吹き込み、頭の中がパッと明るくなるとき',
+            '家族や安心できる人と一緒にテーブルを囲み、和やかな雰囲気の中で楽しく学ぶとき',
+            '自分の「好き！」という気持ちや得意なやり方を信じて、自信を持って机に向かうとき',
+            '頭の中で思い描いていたアイデアや目標が、具体的な形になって見えてくるとき',
+            '大切な知識や自分のペースをしっかり守りながら、落ち着いた気持ちで集中できるとき',
+            'お気に入りの部屋や安心できる空間で、リラックスしながら好きな本や動画を楽しむとき',
+            '昔の偉人や歴史の物語、名作に触れ、時代を超えた知恵や感動を受け取るとき',
+            '難しい単元や長い道のりにも焦らず、一歩ずつ着実に乗り越えていける安心感があるとき',
+            '先生や解説動画の分かりやすい教え方に触れ、「なるほど、そういうことか！」と腑に落ちるとき',
+            '知的好奇心が大きく広がり、図鑑や百科事典、インターネットで気になることを次々調べるとき',
+            'シャボン玉を吹くような無邪気な遊び心を取り入れ、楽しみながら新しい言葉を覚えるとき',
+            '頑張りすぎた頭を昼寝や休憩でしっかり休ませ、スッキリした状態で再開できるとき',
+            '規則正しいリズムやタイマーを活用して、「15分やって休憩」とバランスよく進めるとき',
+            '一度離れていた教科や以前好きだったテーマに再び興味が湧き、楽しく学び直せるとき',
+            '過去の失敗や苦手意識を手放し、「今の自分ならできる！」と新しい気持ちで向き合うとき',
+            '少しつまずいてもすぐに立ち直り、別の角度や新しいヒントを見つけて解決できるとき',
+            '自分の意見や考えをしっかり持ち、周りの情報に振り回されずに納得いくまで考えるとき',
+            '自分の心と対話しながら、「今日はこれをやってみよう」と穏やかに目標を決めるとき',
+            '外の世界の賑やかさや楽しい話題に刺激を受け、前向きなエネルギーが湧いてくるとき',
+            '「ちょっと一休みしよう」と力を抜くことで、かえって良いアイデアや理解が浮かぶとき',
+            '朝日が昇るように新しい希望や意欲が湧き、新鮮な気持ちで1ページ目を開けるとき',
+            '自由な発想とひらめきが冴え、ユニークな覚え方や自分だけの工夫を思いつくとき',
+            '周りの情報や噂に惑わされず、自分にとって本当に必要な知識だけを冷静に選べるとき',
+            '「これとこれはどう違うんだろう？」と2つの視点から物事を比べて深く理解するとき',
+            '高い空から景色を見渡すように、単元の全体像がスッキリ見通せるようになるとき',
+            '難しいことは一旦手放し、好きな音楽やアートに触れて心をリフレッシュさせるとき',
+            'これまで学んだ多くの知識をつなぎ合わせ、自分なりの大きな気づきを得られるとき',
+            '難しい理屈よりも、自分の直感や「なんとなくわかる！」という感覚を信じて進むとき',
+
+            // 蠍座 (210-239)
+            '新しい情報や楽しい話題に触れ、好奇心のアンテナがピーンと立ってワクワクするとき',
+            '思い出の品や懐かしい本を開き、以前学んだ記憶を優しく呼び起こして定着させるとき',
+            '家族や身近な人と一緒にワークやクイズに取り組み、協力する楽しさを味わえるとき',
+            '好きな音楽や物語に心が動かされ、豊かな感情とともに知識がスッと染み込むとき',
+            '多少の難しさにも動じない芯の強さがあり、じっくり腰を据えて一つの課題に取り組めるとき',
+            '「もっと知りたい！」「極めたい！」という熱い探究心が湧き、夢中で調べものをするとき',
+            '表面的なことだけでなく、物事の奥にある深い意味や本当の理由に気づけるとき',
+            '静かな夜や落ち着いた空間で、自分のペースでじっくりと本や資料に向き合うとき',
+            'わからない問題や苦手な単元にも、諦めずに粘り強く向き合って突破口を見つけるとき',
+            '同じ興味を持つ人や家族と感想を分かち合い、温かい絆の中で学びが楽しくなるとき',
+            '「もうダメかも」と思ったところから一転して、「わかった！」という逆転のひらめきが起きるとき',
+            '少し背伸びした専門的な内容や大人っぽい教養に触れ、知的なワクワク感を味わうとき',
+            '実験や工作、試行錯誤を繰り返しながら、自分の手で確かめて納得いくまで探究するとき',
+            '家族や大切な人とのつながりを感じながら、安心できる環境で穏やかに机に向かうとき',
+            '無邪気な遊び心やゲーム感覚を取り入れ、難しいテーマも楽しくクリアしていくとき',
+            '「これだ！」という直感が冴えわたり、笑顔で楽しく新しい知識を吸収できるとき',
+            '自分の内側から湧き上がるアイデアや想像力を大切にし、自由な発想で表現するとき',
+            '四季の移り変わりや自然の美しさを感じるように、五感を使って豊かな学びを楽しむとき',
+            '自分の感じたことや疑問を素直に言葉にして、家族やノートに書き出してみるとき',
+            '不安や迷いの雲が晴れ、スッキリとした明るい気持ちで新しい単元へ踏み出すとき',
+            '「自分のやり方で大丈夫！」と自信を持ち、周りのペースに合わせず堂々と進むとき',
+            '集中力とエネルギーが高まり、ゲームを攻略するようにテンポよく問題を解いていくとき',
+            '可愛らしい動物や自然の生き物の姿に癒やされながら、優しい気持ちで図鑑を眺めるとき',
+            '美しい音楽や心に響く言葉に触れ、感性を豊かにしながらリラックスして学ぶとき',
+            '「今日はここがわかった！」と小さな成長を実感し、心が晴れやかになるとき',
+            '環境を少し変えてみたり、新しいノートを使ったりして、新鮮な気分でスタートするとき',
+            '好きな音楽を聴きながら、リズムに乗って楽しく暗記や作業を進められるとき',
+            '自分だけの静かな時間と空間を大切にし、マイペースに好きなテーマを深掘りするとき',
+            '大切な人や家族への感謝の気持ちを持ちながら、温かい心で日々の学びに取り組むとき',
+            'これまで頑張ってきた自分をしっかり褒めてあげて、笑顔で次のステップへ進むとき',
+
+            // 射手座 (240-269)
+            '「よし、やってみよう！」と前向きなチャレンジ精神が湧き、新しいテーマに勢いよく飛び込むとき',
+            '自然の力強さや科学のエネルギーに触れ、「すごい！」「どうして？」と知的好奇心が爆発するとき',
+            'お気に入りのノートや参考書を広げて、まるでゲーム盤を進めるように楽しく学習するとき',
+            '家族や安心できる人と歩調を合わせながら、無理のないペースで一歩ずつ前に進むとき',
+            '自然の中の生き物や植物の仕組みを観察するように、身近な不思議から楽しく学ぶとき',
+            'ルールやマナーを大切にしながら、誰かとクイズを出し合ったり教え合ったりして学ぶとき',
+            '「この言葉にはどんな意味があるんだろう？」と、言葉の裏にある素敵なメッセージを読み解くとき',
+            '自分の心の中で知識やアイデアがじっくり育ち、新しい発見へとつながっていくとき',
+            '家族や優しいサポートに見守られながら、安心して一歩ずつ階段を上るように学ぶとき',
+            '物語やドラマの主人公になったような気分で、歴史や文学の世界にワクワクしながら浸るとき',
+            '自分の体を動かしたり深呼吸したりしてリフレッシュしてから、スッキリした頭で机に向かうとき',
+            'まだ知らない新しい世界や未来の科学に目を向け、自由な発想で夢を広げるとき',
+            '過去の名作や偉人の言葉に触れ、時代を超えた知恵や勇気をもらえるとき',
+            'ピラミッドや世界の遺跡、歴史の謎など、ロマンあふれるテーマに夢中になって調べるとき',
+            '自分の影やクセに気づくように、「ここを直せばもっと良くなる！」と冷静に振り返れるとき',
+            '海辺でカモメが飛び交うように、自由で軽やかな気分でいろいろなジャンルの本を覗くとき',
+            '朝の光が差し込むように頭がシャキッと目覚め、新しい知識を気持ちよく吸収できるとき',
+            '太陽から身を守る帽子のように、無理なプレッシャーから自分の心を守りつつマイペースに学ぶとき',
+            '自然や動物を守る優しい気持ちを持ち、環境や生き物のテーマから楽しく学びを広げるとき',
+            '寒さや疲れを感じたら温かい飲み物でホッと一息つき、心と身体を温めてから再開するとき',
+            '難しい問題にも知恵と工夫を凝らして立ち向かい、見事にクリアして自信をつけるとき',
+            '外で思いきり遊んだり体を動かしたりしたあと、スッキリした気分で短時間集中するとき',
+            '新しい扉を開けるように、これまで触れたことのなかった分野へワクワクしながら一歩踏み出すとき',
+            '安心できるおうちの玄関のように、ホッとする環境の中で自分のペースを大切に学ぶとき',
+            '「ちょっと背伸びしてやってみよう！」と前向きな意欲が湧き、ワンランク上の課題に挑むとき',
+            '自分なりのルールや工夫を取り入れて、ゲーム感覚で楽しく問題を解き進めていくとき',
+            '頭の中で思い描いたアイデアを、イラストや工作、文章などの目に見える形に表現するとき',
+            '美しい景色やアートに触れるように、視覚的な楽しさや美しさを味わいながら学ぶとき',
+            'じっくり時間をかけて取り組む粘り強さが発揮され、一つの作品を丁寧に仕上げるとき',
+            '学んだことや「面白い！」と思った発見を、堂々と誰かに話して喜ばれるとき',
+
+            // 山羊座 (270-299)
+            '「今日はこれをやり遂げるぞ！」と頼もしい意欲が湧き、目標に向かって着実に進めるとき',
+            '壮大な歴史や世界の仕組みなど、スケールの大きなテーマに触れて知的な刺激を受けるとき',
+            '自分の成長や変化を前向きに受け入れ、新しい学び方にも柔軟にチャレンジできるとき',
+            '同じ興味を持つ仲間や家族と力を合わせ、一緒にクイズや調べものをして盛り上がるとき',
+            '少し難しいチャレンジにも「やってみよう！」と勇気を出して一歩踏み出せるとき',
+            '静かな森の中を歩くように、落ち着いた心でじっくりと本や資料を読み進めるとき',
+            '信頼できる先生や解説のアドバイスを素直に受け取り、グンと理解が深まるとき',
+            '家族や身近な人の温かい応援を感じながら、安心感の中でコツコツと机に向かうとき',
+            '天使がハープを奏でるような優しい音楽を聴きながら、リラックスして穏やかに学ぶとき',
+            '可愛らしい動物や自然の生き物の姿に癒やされ、優しい気持ちで知的好奇心が育つとき',
+            '「これだけは譲れない！」という自分のこだわりや好きなテーマを大切に深掘りするとき',
+            '自然の法則や科学の仕組みを観察し、「なるほど、こうなっているのか！」と深く納得するとき',
+            '歴史や伝統、昔からの知恵を大切にし、基礎基本を丁寧に積み上げていくとき',
+            '古い時代から受け継がれてきた言葉や物語に触れ、その奥深い意味を味わうとき',
+            '「あれもこれも」と詰め込みすぎず、今の自分にとって一番大切なことだけに絞って学ぶとき',
+            '活発なエネルギーが湧いてきて、短い時間で集中してテンポよく課題をクリアするとき',
+            '緊張やプレッシャーをふっと手放し、ありのままの自分でリラックスして本を開くとき',
+            '「今日はこれだけできたら花丸！」と自分を認め、穏やかな気持ちで達成感を味わうとき',
+            '小さな発見や身近な疑問を大切にし、そこから少しずつ学びの世界を広げていくとき',
+            '美しい音楽やリズムに心を委ねるように、心地よい流れの中でスラスラと頭に入るとき',
+            '周りの人と楽しく競争したり協力したりしながら、ゲーム感覚で意欲的に取り組むとき',
+            '「負けても間違えても大丈夫！」と気楽に構え、失敗から新しいヒントを楽しく学ぶとき',
+            'これまで努力してきた成果や自分の得意分野が認められ、誇らしい気持ちになるとき',
+            '静かな空間で自分の内面と向き合い、心を落ち着かせてじっくり考えを深めるとき',
+            'お気に入りの文房具やきれいなノートを使い、丁寧な作業の中で心が整っていくとき',
+            '自然の中の滝や川の流れのように、豊かな感性とインスピレーションが湧き上がるとき',
+            '高い山に登るように一歩ずつ着実に進み、「ここまでできた！」と達成感を味わうとき',
+            '図鑑や鳥の観察のように、身近な自然や生き物の秘密を楽しく見つけていくとき',
+            '星占いや星座の物語、お茶の時間など、ちょっとした遊び心とロマンから学びが広がるとき',
+            '自分の中に眠っていた集中力と責任感が目覚め、目標に向かって堂々と歩み出すとき',
+
+            // 水瓶座 (300-329)
+            '社会や世界の仕組みに興味が湧き、「どうしてこうなっているんだろう？」と広い視野で考えるとき',
+            '突然のハッとするようなひらめきが舞い込み、難しい問題の解き方がパッと浮かぶとき',
+            '周りの意見や常識にとらわれず、「自分はこう思う！」という自由な発想を大切にするとき',
+            '自然の癒やしや優しい言葉に触れ、疲れていた心と頭がほぐれて意欲が戻ってくるとき',
+            '憧れのクリエイターや専門家の知恵に触れ、新しい視点やユニークな考え方を吸収するとき',
+            '自分の役割や目標がハッキリ見え、「まずはここから始めよう」と主体的に動き出すとき',
+            '「教科書に書いてあること以外にも方法があるかも！」と自分なりの新しい解き方を発見するとき',
+            'お気に入りの服装やリラックスできるスタイルで、自分らしく心地よく机に向かうとき',
+            '空高く舞う鷹のように高い視点から全体を見渡し、単元のポイントを一気につかむとき',
+            'これまでのやり方がうまくいかなくても、気持ちを切り替えてまったく新しい方法で再挑戦するとき',
+            '静かな時間の中で自分の心と対話し、本当に興味のあるテーマをじっくり見極めるとき',
+            '一歩ずつ階段を上るように、基礎から応用へと無理なくステップアップしていけるとき',
+            '気圧計が変化を知らせるように、自分の気分や体調のサインに気づいて上手に休憩をとれるとき',
+            '長いトンネルを抜けるように、わからなかった単元の出口が見えてホッと安心するとき',
+            '図鑑の鳥や生き物の知恵を観察するように、小さな発見を楽しくノートにメモするとき',
+            'ビジネスや社会のニュース、仕組みについて、少し大人びた視点で興味を持って調べるとき',
+            '人の温かさや優しさに触れ、安心して自分のペースで学びを続けられる喜びを感じるとき',
+            '心の奥に隠していた疑問や好奇心が表に出てきて、「これ調べてみたい！」と動き出すとき',
+            '小さな火種が大きく燃え上がるように、ちょっとしたきっかけから一気にやる気が高まるとき',
+            '家族や信頼できる人との会話から大切なメッセージを受け取り、迷いがスッキリ晴れるとき',
+            '難しい課題にも粘り強く向き合い、自分の力で乗り越えて大きな自信を手に入れるとき',
+            '疲れたときは柔らかいクッションで一休みするように、心と身体を優しく労わるとき',
+            '元気いっぱいのエネルギーが湧いてきて、テンポよくクイズや問題にチャレンジできるとき',
+            'これまでのこだわりやプレッシャーを手放し、軽やかな心で新しい学びを楽しめるとき',
+            '美しい蝶が羽化するように、苦手だったことが急に得意になったり理解できるようになったりするとき',
+            '細かい作業や測定、観察など、集中力を活かして丁寧にデータを集めるのが楽しいとき',
+            'お気に入りの陶器や文具を愛でるように、身の回りの好きなものに囲まれて心地よく学ぶとき',
+            '自然の恵みや身近な食べ物の成り立ちなど、生活に密着したテーマから楽しく学ぶとき',
+            'サナギから蝶へ変わるように、これまでの知識が頭の中で整理されて新しい理解へと生まれ変わるとき',
+            '時代や国境を超えた普遍的な知恵に触れ、心が大きく開かれていくのを感じるとき',
+
+            // 魚座 (330-359)
+            '賑やかな場所や楽しい話題の中から、今の自分に必要なヒントを直感的にキャッチするとき',
+            '小さな違和感や疑問を見逃さず、「ここはどうなっているんだろう？」と丁寧に確かめるとき',
+            '歴史の物語や昔の人々の暮らしに触れ、時代を超えたロマンを感じながら楽しく学ぶとき',
+            '人や生き物とのつながりを感じながら、優しい気持ちで社会や自然のテーマに向き合うとき',
+            'お祭りやイベントのようなワクワク感を取り入れ、家族と一緒に楽しくクイズで盛り上がるとき',
+            '憧れの人物や素敵な作品に心を動かされ、「自分もやってみよう！」と前向きな意欲が湧くとき',
+            '朝霧が晴れていくように、頭の中のモヤモヤが消えてスッキリとした気持ちで本を開けるとき',
+            '直感とひらめきが冴えわたり、「これだ！」という答えやアイデアが自然と降りてくるとき',
+            'ゲームやレースを楽しむような軽やかな気分で、テンポよく問題をクリアしていくとき',
+            '雲の上を散歩するような自由な想像力を働かせ、物語やイラストの世界から楽しく学ぶとき',
+            '心の奥にある「知りたい！」という純粋な願いに気づき、自分のペースで一歩踏み出すとき',
+            '新しい知識の扉が開き、これまで知らなかった世界の面白さにワクワクするとき',
+            '過去の名作や博物館の展示、歴史の遺物など、ロマンあふれるテーマにじっくり浸るとき',
+            '自分の感受性を大切に守りながら、静かで安心できる環境の中で穏やかに机に向かうとき',
+            '思いきり笑ったり好きなことを楽しんだりしてリフレッシュしたあと、スッキリした頭で学ぶとき',
+            '静かな空間でひらめきが訪れ、パズルのピースがはまるように「わかった！」と気づくとき',
+            'お祝い事や楽しいイベントのように、小さな「できた！」を家族と一緒に喜んで祝うとき',
+            '大きなステージや舞台を想像するように、自分の得意なことや好きな知識を堂々と発表するとき',
+            '先生や本から受け取った知恵を自分なりに消化し、次の新しい学びへと活かしていくとき',
+            '家族や大切な人と一緒に美味しいものを食べたり話したりして、心のエネルギーを満たすとき',
+            '白い子羊のように無邪気で素直な心になり、新しい知識をスポンジのように吸収するとき',
+            '高い山から新しい景色を見下ろすように、これまで学んだことが自信となって次へ進めるときの',
+            '神秘的な宇宙や星座の物語、不思議な現象に触れ、想像力を大きく膨らませるとき',
+            'みんなと違う自分の個性やペースを誇りに思い、のびのびと好きな分野を探究するとき',
+            'これまでの心の疲れやプレッシャーをスッキリ洗い流し、真っさらな気持ちでスタートするとき',
+            '月の光に照らされるように優しいインスピレーションが湧き、静かな集中力が続くとき',
+            '満月の夜のように感受性と想像力が豊かになり、アートや音楽、物語から深く学ぶとき',
+            '自然の恵みや四季の移り変わりを感じながら、穏やかな心で日々の小さな学びを楽しむとき',
+            'プリズムが光を通すように、一つのテーマからいろいろな視点やアイデアがキラキラ広がるとき',
+            'これまで積み重ねてきたすべての経験と優しさを胸に、新しい未来へ希望を持って踏み出すとき'
+        ];
+
+        // ==========================================
+        // 1.6 日常の「へぇ〜！」雑学カード（小学生向け：30個 ＆ 中学生向け：30個）
+        // ==========================================
+        const TRIVIA_ELEMENTARY = [
+            { title: 'バナナの黒い点々', text: 'バナナが熟して出てくる茶色や黒の点々は「シュガースポット」と呼ばれていて、甘くなったよ！という美味しいサインなんだよ。' },
+            { title: 'パンの袋を留めるアレの名前', text: '食パンの袋をパチンと留めているプラスチックの留め具は、「バッグ・クロージャー」っていうカッコいい名前がついているんだよ。' },
+            { title: '鉛筆1本で書ける長さ', text: 'ふつうの鉛筆1本を全部使い切ると、なんと約50キロメートルもの長い線を引くことができるんだよ！' },
+            { title: 'ラッコが手を繋いで寝る理由', text: 'ラッコが海の上でぷかぷか浮かびながら手を繋いで寝るのは、寝ている間に波に流されて離ればなれにならないためなんだって。' },
+            { title: 'フラミンゴがピンク色な理由', text: 'フラミンゴは生まれたときは白色だけど、食べているエビや藻（も）に含まれる赤い色素のせいで、だんだんピンク色になるんだよ。' },
+            { title: 'イチゴの「つぶつぶ」の正体', text: 'イチゴの表面についている小さなつぶつぶ、実はあれが「タネ」ではなく、ひとつひとつが本当の「果実」なんだよ！' },
+            { title: 'キリンが寝る時間はたったの20分！？', text: 'キリンは敵に襲われないように立ったまま寝ることが多く、1日に熟睡する時間は合計でたったの20分くらいなんだって。' },
+            { title: 'カメレオンの色が変わる本当の理由', text: 'カメレオンは景色に隠れるためだけでなく、嬉しいときや怒ったとき、温度が変わったときなど「気分」でも体の色が変わるんだよ。' },
+            { title: 'カレーのにおいで食欲が出る理由', text: 'カレーのスパイスには胃や腸を元気にする働きがあるから、においを嗅ぐだけで脳が「お腹すいた！」ってスイッチを入れるんだよ。' },
+            { title: '氷が水に浮く不思議な理由', text: 'たいていの物は冷えて固まると重くなるけど、水だけは氷になると少しふくらんで軽くなるから、水にぷかぷか浮くんだよ。' },
+            { title: '猫のヒゲは超高性能センサー', text: '猫のヒゲはただの毛ではなく、空気の流れや暗闇での障害物を察知する大切なセンサー。だから絶対に切っちゃダメなんだよ。' },
+            { title: '虹は本当は丸い形をしている', text: '地面から見ると半円に見える虹だけど、飛行機の上など高いところから見ると、実はまん丸の「円」になっているんだよ！' },
+            { title: 'ダチョウの目玉は脳みそより大きい', text: '走るのがとっても速いダチョウは、遠くの敵をすぐに見つけるために目がすごく発達していて、脳みそよりも目玉のほうが大きいんだって。' },
+            { title: 'お寿司の「ガリ」の名前の由来', text: 'お寿司屋さんで食べるショウガの甘酢漬けを「ガリ」と呼ぶのは、噛んだときに「ガリガリ」と音がするからなんだよ。' },
+            { title: 'コアラが1日に20時間も寝る理由', text: 'コアラが食べているユーカリの葉っぱは栄養が少なくて消化にすごくエネルギーを使うから、体力を温存するために1日20時間も寝るんだよ。' },
+            { title: '消しゴムが紙にくっつく理由', text: 'プラスチック消しゴムをプラスチックの定規と一緒にしておくとくっつくのは、消しゴムの成分がプラスチックを少し溶かしてしまうからなんだ。' },
+            { title: 'タコの心臓は3つもある！', text: 'タコには、全身に血を送るメインの心臓が1つと、エラに血を送るサブの心臓が2つ、合計3つも心臓があるんだよ。' },
+            { title: '「しゃっくり」を止める豆知識', text: 'しゃっくりは横隔膜（おうかくまく）のけいれん。コップの向こう側から水を飲んだり、ゆっくり息を止めたりすると神経が落ち着いて止まりやすいよ。' },
+            { title: 'シロクマの毛は本当は透明！', text: '真っ白に見えるシロクマの毛は、実は1本1本がストローのように中が空洞の「透明」。光が反射して白く見えているだけなんだよ。' },
+            { title: 'ランドセルの名前の由来', text: 'ランドセルは、オランダ語で「背負うカバン」を意味する「ランセル」という言葉がなまって生まれた名前なんだって。' },
+            { title: 'カエルは目玉を使ってエサを飲み込む', text: 'カエルには歯で噛む力がないから、エサを飲み込むときに目玉をグッと口の中に引っ込めて、喉の奥へ押し込んでいるんだよ！' },
+            { title: '飛行機雲ができる理由', text: '空の高いところはマイナス40度くらいの超低温！エンジンの排気ガスに含まれる水蒸気が一気に冷えて氷の粒になったのが飛行機雲だよ。' },
+            { title: 'イルカは片目を開けたまま寝る', text: 'イルカは水面で息をするために、脳の右半分と左半分を交互に休ませながら泳いで寝るから、片方の目を開けたまま眠るんだよ。' },
+            { title: 'チョコレートは昔「飲み物」だった', text: '大昔の中央アメリカでは、カカオをすりつぶして唐辛子やスパイスを混ぜた苦い飲み物として飲まれていたんだよ。' },
+            { title: 'セミが地上に出てから鳴くのはオスだけ', text: '夏にミーンミーンと元気よく鳴いているセミは全部オス。メスは鳴くための器官を持っていないから静かなんだよ。' },
+            { title: '人の骨の数は赤ちゃんのほうが多い', text: '大人の骨は約206本だけど、赤ちゃんは約300本もあるんだよ。成長するにつれていくつかの骨がくっついて1本になるんだって。' },
+            { title: 'ペンギンにも実は「ひざ」がある', text: '短い足でヨチヨチ歩いているように見えるペンギンだけど、実はお腹の羽毛の中にちゃんと長い足と「ひざ」が隠れているんだよ！' },
+            { title: 'トマトは昔「観賞用」だった', text: '真っ赤なトマトがヨーロッパに伝わったばかりの頃は、綺麗だけど毒があると思われていて、お花のように見て楽しむ植物だったんだよ。' },
+            { title: 'アリの行列が迷わない理由', text: 'エサを見つけたアリは、お尻から「道しるべフェロモン」という特別なにおいを地面につけながら歩くから、仲間が迷わず辿れるんだよ。' },
+            { title: '星がキラキラ瞬いて見える理由', text: '宇宙にある星そのものはチカチカしていないけれど、星の光が地球の空気の層を通るときにゆらゆら揺れるから、瞬いて見えるんだよ。' }
+        ];
+
+        const TRIVIA_JUNIOR_HIGH = [
+            { title: '1円玉1枚を作るのにかかる費用', text: '実は1円玉を1枚製造するのに、材料費や加工費合わせて約2〜3円ほどのコストがかかっているんだよ。' },
+            { title: 'スマホの画面が指に反応する仕組み', text: 'スマホの画面には目に見えない微弱な電流が流れていて、指が触れた場所の静電気の変化をセンサーが読み取って位置を特定しているんだ。' },
+            { title: '眠気覚ましに「ガムを噛む」と良い理由', text: 'アゴを動かして噛むリズム運動をすると、脳の血流が増えて「セロトニン」という集中力を高める物質が分泌されるからなんだよ。' },
+            { title: '図書館の本が日焼けしにくい工夫', text: '図書館の照明には、本の紙やインクを劣化させる紫外線をカットする特殊な蛍光灯やLEDが使われていることが多いんだよ。' },
+            { title: '「OK」の語源はスペルミス！？', text: '19世紀のアメリカで「All Correct（すべて正しい）」をわざと「Oll Korrect」とスペルミスして略した「OK」が流行したのが始まりという説が有力だよ。' },
+            { title: '飛行機の中で味覚が変わる理由', text: '上空の機内は気圧が低く乾燥しているため、地上よりも「甘み」と「塩味」を約30％ほど感じにくくなるんだって。だから機内食は少し濃いめなんだよ。' },
+            { title: '人の脳は「否定語」をイメージできない', text: '「ピンクの象を絶対に想像しないでください」と言われると想像してしまうように、脳は言葉の後半の単語を先に映像化してしまう性質があるんだ。' },
+            { title: 'サメは1億年以上ほとんど姿が変わっていない', text: 'サメは恐竜が生まれるよりもずっと前の約4億年前から地球に存在していて、すでに完成された体の仕組みを持っていた「生きた化石」なんだ。' },
+            { title: '宇宙空間は無音の世界', text: '音は空気や水などの振動が伝わって聞こえるもの。真空の宇宙には振動を伝える空気がないため、どんなに大きな爆発が起きても音は一切聞こえないよ。' },
+            { title: '「ブルーライト」が眠気を妨げる理由', text: 'スマホやPCの青い光は朝の太陽光と波長が似ているため、脳が「今は昼間だ！」と勘違いして眠りを誘うホルモン（メラトニン）を止めてしまうんだ。' },
+            { title: '南極に「風邪」が存在しない理由', text: '南極は気温が低すぎて風邪のウイルスや細菌が空気中で生きられないため、南極で風邪をひくことは基本的にないんだって。' },
+            { title: '自動販売機の電気代が昔より激減した秘密', text: '最新の自販機は、朝までに飲み物をキンキンに冷やしておき、電気を使う昼間は冷却を止めて魔法瓶のように断熱材で冷たさをキープしているんだよ。' },
+            { title: '笑い声は人間だけのコミュニケーションではない', text: 'ネズミをくすぐると、人間には聞こえない高い超音波で「キャッキャッ」と笑い声をあげることが脳科学の研究でわかっているんだよ。' },
+            { title: 'クレオパトラはピラミッドより現代に近い', text: 'エジプトのギザの大ピラミッドが建てられたのは約4500年前、クレオパトラが生きたのは約2000年前。実はピラミッド建設より月面着陸のほうが時代が近いんだ。' },
+            { title: '「つん読」は実は脳に良い刺激を与える', text: '買ったり借りたりして読んでいない本が視界にあるだけでも、脳は「まだ知らない情報がある」と認識して知的好奇心が保たれやすいと言われているよ。' },
+            { title: '深海の魚が水圧で潰れない理由', text: '深海魚の体の中にも、外からの巨大な水圧と同じだけの圧力（体液の圧）が内側からかかっているから、押し潰されずに泳げるんだよ。' },
+            { title: '映画館のポップコーンが定番になった理由', text: '1930年代の世界恐慌の時代、安くて手軽に作れるポップコーンは映画館でも飛ぶように売れ、映画館の経営を救う救世主になった歴史があるんだ。' },
+            { title: '金星の1日は金星の1年より長い', text: '金星が太陽の周りを1周する（1年）のは約225日だけど、金星自身が1回転する（1日）のには約243日もかかる不思議な惑星なんだよ。' },
+            { title: '「鳥肌」が立つのは大昔の毛皮の名残り', text: '寒いときや驚いたときに鳥肌が立つのは、全身が毛皮で覆われていた祖先の動物が、毛を逆立てて空気の層を作り体温を守ろうとした名残りなんだ。' },
+            { title: '日本に「自動販売機」が多い理由', text: '治安が良くて夜中に壊されたり盗まれたりするリスクが極めて低いことと、硬貨の精度が高く偽造硬貨が少ないことが大きな理由なんだよ。' },
+            { title: '太陽の光が地球に届くまでの時間', text: '光は1秒間に地球を7周半する速さだけど、太陽と地球は約1億5000万kmも離れているため、太陽の光が地球に届くまで約8分19秒かかるんだ。' },
+            { title: '人の集中力が続く限界「ポモドーロの法則」', text: '人間の脳は「25分集中＋5分休憩」のリズムで区切ると、疲れを溜めずに最も高いパフォーマンスを発揮できることが心理学で知られているよ。' },
+            { title: 'タマネギを切ると涙が出る化学反応', text: 'タマネギの細胞が壊れると「硫化アリル」という催涙成分が気体になって目に入り、目がそれを洗い流そうとして涙が出る仕組みなんだ。' },
+            { title: 'パンダのしっぽは黒ではなく「白」', text: 'イラストでは黒く描かれがちなパンダのしっぽだけど、本物のパンダのしっぽは実は真っ白なんだよ。' },
+            { title: '地球の自転スピードは時速約1700km', text: '私たちは気づかないけれど、地球は赤道付近で時速約1700km（新幹線よりずっと速いスピード）で猛回転しているんだよ。' },
+            { title: '記憶を定着させるなら「寝る前15分」が最強', text: '寝る直前に見たり読んだりした情報は、そのあと新しい情報が入ってこないため上書きされにくく、睡眠中に脳が優先的に整理・記憶してくれるんだ。' },
+            { title: '「鉛筆のHB」のHとBの意味', text: 'Hは「Hard（硬い）」、Bは「Black（黒い）」の略。つまりHBは「硬さと黒さのちょうど中間」という意味なんだよ。' },
+            { title: 'ガラスは科学的には「超ゆっくり動く液体」に近い', text: 'ガラスの分子は結晶のように規則正しく並ばずバラバラなまま固まっている（アモルファス構造）ため、性質としては液体に近い不思議な物質なんだ。' },
+            { title: '「デジャヴ（既視感）」が起きる脳の仕組み', text: '初めて見る景色なのに「前にも見た気がする」と感じるのは、目から入った情報を脳が処理するときに一瞬のタイムラグが起きて「過去の記憶」と誤認するからなんだ。' },
+            { title: '人間の身体は「星のかけら」でできている', text: '私たちの血液にある鉄分や骨のカルシウムなどの元素は、大昔に重い星が一生を終えて超新星爆発を起こしたときに宇宙へ散らばった物質からできているんだよ。' }
+        ];
+
+        // ==========================================
+        // 1.7 ポイント達成ごとの「おうちご褒美チケット」（50PT〜500PT・50PT刻み）
+        // ==========================================
+        const DEFAULT_REWARD_TICKETS = [
+            { pt: 50,  icon: '🍬', title: '好きなおやつ 1個リクエスト券', desc: 'おうちの人に好きなおやつを1個リクエストできるよ！' },
+            { pt: 100, icon: '🍩', title: '好きなおやつ 2個リクエスト券', desc: '好きなおやつを2個選べるスペシャル券！' },
+            { pt: 150, icon: '🍰', title: '好きなおやつ 3個リクエスト券', desc: 'おやつ3個、またはちょっと特別なデザートをリクエストできるよ！' },
+            { pt: 200, icon: '🍽️', title: '今日の夕食メニュー決められる券', desc: '今日の夜ごはんのメインメニューを自分の好きなものに決められるよ！' },
+            { pt: 250, icon: '🎁', title: 'クオカード 500円券（または500円分プレゼント）', desc: '25回達成おめでとう！本や文房具、好きなものに使える500円分チケット！' },
+            { pt: 300, icon: '🎮', title: '好きなゲーム・動画 30分延長券', desc: 'いつもより30分長く、好きなゲームや動画を思いきり楽しめる券！' },
+            { pt: 350, icon: '🥤', title: 'コンビニ・カフェの好きなお飲み物＆スイーツ券', desc: 'コンビニやお店で好きなドリンクとスイーツをセットで選べるよ！' },
+            { pt: 400, icon: '🌙', title: '休日の前日 夜ふかし30分OK券', desc: 'お休みの前の日に、30分だけ夜ふかししてリラックスできる特別券！' },
+            { pt: 450, icon: '🚗', title: '休日のお出かけ先リクエスト券', desc: '次のお休みにいきたい場所（公園・本屋・カフェなど）をリクエストできるよ！' },
+            { pt: 500, icon: '👑', title: 'クオカード 1,000円券（または1,000円分好きなもの券）', desc: '50回達成のマスター称号！1,000円分の好きなものをゲットできる特大チケット！' }
+        ];
+
+        // ==========================================
+        // 2. アプリ状態管理・ストレージ操作
+        // ==========================================
+        const STORAGE_KEYS = {
+            questCount: 'hoshiyomi_quest_count_v1',
+            tickets: 'hoshiyomi_reward_tickets_v2',
+            usedTickets: 'hoshiyomi_used_tickets_v2',
+            triviaIds: 'hoshiyomi_unlocked_trivia_ids_v1'
+        };
+
+        let currentMode = 'kids';
+        let activeCalendarTab = 'week';
+        let activeCollectionPanel = null; // 初期状態は閉じてスマホで見やすくする
+        let lastCalculatedData = null;
+
+        // ==========================================
+        // 2.5 Astronomy Engine 天文計算ヘルパー関数
+        // ==========================================
+        function getEclipticLongitude(bodyName, dateObj) {
+            if (typeof Astronomy === 'undefined') {
+                throw new Error('天文計算ライブラリ（Astronomy Engine）が読み込まれていません。通信状況を確認してください。');
+            }
+            const vec = Astronomy.GeoVector(Astronomy.Body[bodyName], dateObj, true);
+            const ecl = Astronomy.Ecliptic(vec);
+            let lon = ecl.elon % 360;
+            if (lon < 0) lon += 360;
+            return lon;
+        }
+
+        function getSignInfo(longitude) {
+            const normLon = ((longitude % 360) + 360) % 360;
+            const signIndex = Math.floor(normLon / 30);
+            const degInSign = normLon % 30;
+            const sabianDegree = Math.floor(degInSign) + 1;
+            const totalSabian360 = signIndex * 30 + sabianDegree;
+            return {
+                longitude: normLon,
+                signIndex,
+                sign: ZODIAC_SIGNS[signIndex],
+                degInSign,
+                sabianDegree,
+                totalSabian360
+            };
+        }
+
+        function getShortestAngle(lon1, lon2) {
+            let diff = Math.abs(lon1 - lon2) % 360;
+            if (diff > 180) diff = 360 - diff;
+            return diff;
+        }
+
+        function buildWeekForecast(targetDateStr) {
+            const baseDate = new Date(`${targetDateStr}T12:00:00`);
+            const dayOfWeek = baseDate.getDay(); // 0:日, 1:月 ... 6:土
+            const diffToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+            const monday = new Date(baseDate);
+            monday.setDate(baseDate.getDate() + diffToMonday);
+
+            const weekDays = ['月', '火', '水', '木', '金', '土', '日'];
+            const items = [];
+
+            for (let i = 0; i < 7; i++) {
+                const d = new Date(monday);
+                d.setDate(monday.getDate() + i);
+                const yyyy = d.getFullYear();
+                const mm = String(d.getMonth() + 1).padStart(2, '0');
+                const dd = String(d.getDate()).padStart(2, '0');
+                const dateStr = `${yyyy}-${mm}-${dd}`;
+                const moonLon = getEclipticLongitude('Moon', d);
+                const moonInfo = getSignInfo(moonLon);
+
+                items.push({
+                    dateStr,
+                    label: `${d.getMonth() + 1}/${d.getDate()}（${weekDays[i]}）`,
+                    moonInfo,
+                    isSelected: dateStr === targetDateStr
+                });
+            }
+
+            return {
+                mondayLabel: items[0].label,
+                sundayLabel: items[6].label,
+                items
+            };
+        }
+
+        function getLunarCycleInfo(dateObj) {
+            const sunLon = getEclipticLongitude('Sun', dateObj);
+            const moonLon = getEclipticLongitude('Moon', dateObj);
+            let phaseAngle = (moonLon - sunLon) % 360;
+            if (phaseAngle < 0) phaseAngle += 360;
+
+            const synodicMonth = 29.530588;
+            const lunarAge = ((phaseAngle / 360) * synodicMonth).toFixed(1);
+
+            let phase = LUNAR_CYCLE_PHASES[0];
+            if (phaseAngle < 90) {
+                phase = LUNAR_CYCLE_PHASES[0];
+            } else if (phaseAngle < 180) {
+                phase = LUNAR_CYCLE_PHASES[1];
+            } else if (phaseAngle < 270) {
+                phase = LUNAR_CYCLE_PHASES[2];
+            } else {
+                phase = LUNAR_CYCLE_PHASES[3];
+            }
+
+            const degToFull = (180 - phaseAngle + 360) % 360;
+            const degToNew = (360 - phaseAngle) % 360;
+            const daysToFull = Math.max(0, Math.round((degToFull / 360) * synodicMonth));
+            const daysToNew = Math.max(0, Math.round((degToNew / 360) * synodicMonth));
+
+            return {
+                phaseAngle,
+                lunarAge,
+                phase,
+                daysToFull,
+                daysToNew
+            };
+        }
+
+        function loadRewardTickets() {
+            try {
+                const raw = localStorage.getItem(STORAGE_KEYS.tickets);
+                if (raw) {
+                    const parsed = JSON.parse(raw);
+                    if (Array.isArray(parsed) && parsed.length === 10) {
+                        return parsed;
+                    }
+                }
+            } catch (e) {
+                console.warn('チケットデータの読み込みに失敗:', e);
+            }
+            return DEFAULT_REWARD_TICKETS.map(item => ({ ...item }));
+        }
+
+        function saveRewardTickets(tickets) {
+            try {
+                localStorage.setItem(STORAGE_KEYS.tickets, JSON.stringify(tickets));
+            } catch (e) {
+                console.warn('チケットデータの保存に失敗:', e);
+            }
+        }
+
+        function loadQuestCount() {
+            try {
+                return Math.max(0, parseInt(localStorage.getItem(STORAGE_KEYS.questCount) || '0', 10) || 0);
+            } catch (e) {
+                return 0;
+            }
+        }
+
+        function saveQuestCount(count) {
+            try {
+                localStorage.setItem(STORAGE_KEYS.questCount, String(count));
+            } catch (e) {
+                console.warn('クリア回数の保存に失敗:', e);
+            }
+        }
+
+        function loadUsedTickets() {
+            try {
+                const raw = localStorage.getItem(STORAGE_KEYS.usedTickets);
+                return raw ? JSON.parse(raw) : {};
+            } catch (e) {
+                return {};
+            }
+        }
+
+        function saveUsedTickets(usedMap) {
+            try {
+                localStorage.setItem(STORAGE_KEYS.usedTickets, JSON.stringify(usedMap));
+            } catch (e) {
+                console.warn('使用済みチケット状態の保存に失敗:', e);
+            }
+        }
+
+        function loadUnlockedTriviaIds() {
+            try {
+                const raw = localStorage.getItem(STORAGE_KEYS.triviaIds);
+                return raw ? JSON.parse(raw) : [];
+            } catch (e) {
+                return [];
+            }
+        }
+
+        function saveUnlockedTriviaIds(ids) {
+            try {
+                localStorage.setItem(STORAGE_KEYS.triviaIds, JSON.stringify(ids));
+            } catch (e) {
+                console.warn('雑学コレクション状態の保存に失敗:', e);
+            }
+        }
+
+        // ==========================================
+        // 3. 入力フォーム・モード制御
+        // ==========================================
+        function setToday() {
+            const now = new Date();
+            const yyyy = now.getFullYear();
+            const mm = String(now.getMonth() + 1).padStart(2, '0');
+            const dd = String(now.getDate()).padStart(2, '0');
+            const targetInput = document.getElementById('target-date');
+            if (targetInput) {
+                targetInput.value = `${yyyy}-${mm}-${dd}`;
+            }
+        }
+
+        function toggleBirthTime() {
+            const checkbox = document.getElementById('unknown-time');
+            const timeInput = document.getElementById('birth-time');
+            if (!checkbox || !timeInput) return;
+
+            if (checkbox.checked) {
+                timeInput.disabled = true;
+                timeInput.value = '12:00';
+                timeInput.classList.add('bg-slate-100', 'text-slate-500');
+                timeInput.classList.remove('bg-white', 'text-slate-800');
+            } else {
+                timeInput.disabled = false;
+                if (!timeInput.value) timeInput.value = '12:00';
+                timeInput.classList.remove('bg-slate-100', 'text-slate-500');
+                timeInput.classList.add('bg-white', 'text-slate-800');
+            }
+            updateMoonUnknownState();
+        }
+
+        function updateMoonUnknownState() {
+            const unknownCheckbox = document.getElementById('unknown-time');
+            const moonCard = document.getElementById('moon-env-card');
+            const moonNote = document.getElementById('moon-unknown-note');
+            const isUnknown = unknownCheckbox ? unknownCheckbox.checked : true;
+
+            if (moonCard) {
+                if (isUnknown) {
+                    moonCard.classList.add('opacity-60');
+                } else {
+                    moonCard.classList.remove('opacity-60');
+                }
+            }
+            if (moonNote) {
+                if (isUnknown) {
+                    moonNote.classList.remove('hidden');
+                } else {
+                    moonNote.classList.add('hidden');
+                }
+            }
+        }
+
+        function detectAutoModeFromBirthDate(birthDateStr) {
+            const targetStr = document.getElementById('target-date')?.value;
+            const birth = new Date(`${birthDateStr}T12:00:00`);
+            const ref = targetStr ? new Date(`${targetStr}T12:00:00`) : new Date();
+            if (isNaN(birth.getTime()) || isNaN(ref.getTime())) return 'kids';
+
+            let age = ref.getFullYear() - birth.getFullYear();
+            const mDiff = ref.getMonth() - birth.getMonth();
+            if (mDiff < 0 || (mDiff === 0 && ref.getDate() < birth.getDate())) {
+                age--;
+            }
+            return age >= 12 ? 'teen' : 'kids';
+        }
+
+        function setMode(mode) {
+            currentMode = mode === 'teen' ? 'teen' : 'kids';
+            const body = document.getElementById('app-body');
+            const header = document.getElementById('app-header');
+            const badge = document.getElementById('header-badge');
+            const title = document.getElementById('header-title');
+            const formHeading = document.getElementById('form-heading');
+            const submitText = document.getElementById('submit-text');
+            const btnKids = document.getElementById('btn-mode-kids');
+            const btnTeen = document.getElementById('btn-mode-teen');
+
+            if (currentMode === 'kids') {
+                body.className = 'bg-amber-50/70 text-slate-800 min-h-screen pb-16 font-kids';
+                header.className = 'bg-gradient-to-r from-amber-400 via-orange-400 to-rose-400 text-white shadow-md transition-all duration-500';
+                badge.textContent = '星の冒険クエスト・モード';
+                title.textContent = 'ほしよみ学習ナビ ✨';
+                formHeading.lastElementChild.textContent = 'きみの星のデータを教えてね';
+                submitText.textContent = '今日の星のミッションを見る！';
+                btnKids.className = 'px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all bg-white text-orange-600 shadow-sm';
+                btnTeen.className = 'px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all text-white/90 hover:text-white';
+            } else {
+                body.className = 'bg-slate-950 text-slate-100 min-h-screen pb-16 font-teen';
+                header.className = 'bg-gradient-to-r from-indigo-900 via-purple-900 to-slate-900 text-white shadow-lg border-b border-white/10 transition-all duration-500';
+                badge.textContent = 'メンタル＆ライフハック・モード';
+                title.textContent = 'ほしよみ学習ナビ 🌙';
+                formHeading.lastElementChild.textContent = '星のコンディション＆学習データ入力';
+                submitText.textContent = '今日の星回りとミッションを確認する';
+                btnTeen.className = 'px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all bg-indigo-500 text-white shadow-sm';
+                btnKids.className = 'px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all text-slate-300 hover:text-white';
+            }
+
+            applyThemeToSections();
+            renderQuestStatsUI();
+            renderRewardTicketsPanel();
+            renderTriviaGrid();
+
+            if (lastCalculatedData) {
+                renderAllResults(lastCalculatedData);
+            }
+            lucide.createIcons();
+        }
+
+        function applyThemeToSections() {
+            const isTeen = currentMode === 'teen';
+            const cardIds = ['input-card', 'forecast-card', 'mission-card', 'env-prescription-card', 'calendar-card', 'natal-card'];
+            cardIds.forEach(id => {
+                const el = document.getElementById(id);
+                if (!el) return;
+                if (isTeen) {
+                    el.classList.remove('bg-white', 'border-amber-100');
+                    el.classList.add('bg-slate-900/90', 'border-slate-800', 'text-slate-100');
+                } else {
+                    el.classList.remove('bg-slate-900/90', 'border-slate-800', 'text-slate-100');
+                    el.classList.add('bg-white', 'border-amber-100');
+                }
+            });
+
+            // 入力フォームの見出し・注釈（中学生モードの暗色背景でもはっきり見えるように）
+            const formHeading = document.getElementById('form-heading');
+            if (formHeading) {
+                formHeading.className = isTeen
+                    ? 'text-base sm:text-lg font-bold flex items-center gap-2 text-amber-300 font-teen'
+                    : 'text-base sm:text-lg font-bold flex items-center gap-2 text-amber-900 font-kids';
+            }
+
+            const sabianMeaning = document.getElementById('sabian-meaning');
+            if (sabianMeaning) {
+                sabianMeaning.className = isTeen
+                    ? 'text-sm sm:text-base font-bold text-slate-100 leading-relaxed'
+                    : 'text-sm sm:text-base font-bold text-slate-800 leading-relaxed';
+            }
+            const envIntro = document.getElementById('env-intro');
+            if (envIntro) {
+                envIntro.className = isTeen
+                    ? 'text-xs sm:text-sm text-slate-200 leading-relaxed'
+                    : 'text-xs sm:text-sm text-slate-600 leading-relaxed';
+            }
+            const weekDesc = document.getElementById('week-desc');
+            if (weekDesc) {
+                weekDesc.className = isTeen
+                    ? 'text-xs sm:text-sm text-slate-200 leading-relaxed'
+                    : 'text-xs sm:text-sm text-slate-600 leading-relaxed';
+            }
+            const monthDesc = document.getElementById('month-desc');
+            if (monthDesc) {
+                monthDesc.className = isTeen
+                    ? 'text-xs sm:text-sm text-slate-200 leading-relaxed'
+                    : 'text-xs sm:text-sm text-slate-600 leading-relaxed';
+            }
+
+            // 「学びの取扱説明書」セクションの見出し・ラベルも中学生モードで白くはっきり表示
+            const natalSub = document.getElementById('natal-sub');
+            if (natalSub) {
+                natalSub.className = isTeen
+                    ? 'text-xs font-bold text-purple-300'
+                    : 'text-xs font-bold text-purple-600';
+            }
+            const natalTitle = document.getElementById('natal-title');
+            if (natalTitle) {
+                natalTitle.className = isTeen
+                    ? 'text-base sm:text-lg font-bold text-white font-teen'
+                    : 'text-base sm:text-lg font-bold text-slate-800 font-kids';
+            }
+            const natalCaption = document.getElementById('natal-caption');
+            if (natalCaption) {
+                natalCaption.className = isTeen
+                    ? 'text-xs text-slate-300'
+                    : 'text-xs text-slate-400';
+            }
+        }
+
+        function showError(msg) {
+            const errorBox = document.getElementById('error-box');
+            const errorText = document.getElementById('error-text');
+            if (errorText) errorText.textContent = msg;
+            if (errorBox) errorBox.classList.remove('hidden');
+        }
+
+        function hideError() {
+            const errorBox = document.getElementById('error-box');
+            if (errorBox) errorBox.classList.add('hidden');
+        }
+
+        function calculateHoroscope(autoSwitchMode = false) {
+            try {
+                hideError();
+                const birthDateVal = document.getElementById('birth-date')?.value;
+                const targetDateVal = document.getElementById('target-date')?.value;
+                const unknownTime = document.getElementById('unknown-time')?.checked;
+                const birthTimeVal = unknownTime ? '12:00' : (document.getElementById('birth-time')?.value || '12:00');
+
+                if (!birthDateVal) {
+                    showError('生年月日を入力してください。');
+                    return;
+                }
+                if (!targetDateVal) {
+                    showError('占いたい日付を選択してください。');
+                    return;
+                }
+
+                if (autoSwitchMode) {
+                    const detected = detectAutoModeFromBirthDate(birthDateVal);
+                    setMode(detected);
+                }
+
+                const birthDateObj = new Date(`${birthDateVal}T${birthTimeVal}:00`);
+                const targetDateObj = new Date(`${targetDateVal}T12:00:00`);
+
+                if (isNaN(birthDateObj.getTime()) || isNaN(targetDateObj.getTime())) {
+                    showError('日付または時刻の形式が正しくありません。');
+                    return;
+                }
+
+                // ネイタル4天体＋月（環境処方箋用）
+                const natalPlanets = {};
+                ['Sun', 'Moon', 'Mercury', 'Venus', 'Mars'].forEach(pKey => {
+                    const lon = getEclipticLongitude(pKey, birthDateObj);
+                    natalPlanets[pKey] = getSignInfo(lon);
+                });
+
+                // トランジット天体（月・水星）
+                const transitMoonLon = getEclipticLongitude('Moon', targetDateObj);
+                const transitMoon = getSignInfo(transitMoonLon);
+
+                const transitMercuryLon = getEclipticLongitude('Mercury', targetDateObj);
+                const transitMercury = getSignInfo(transitMercuryLon);
+
+                // N水星 × T月のアスペクト判定
+                const nMercury = natalPlanets.Mercury;
+                const angle = getShortestAngle(transitMoon.longitude, nMercury.longitude);
+                const orb = 8;
+
+                let aspectType = 'neutral';
+                let aspectBadgeText = `T月 × N水星（約${Math.round(angle)}°）`;
+
+                if (angle <= orb) {
+                    aspectType = 'conjunction';
+                    aspectBadgeText = 'T月 0° N水星（合）';
+                } else if (Math.abs(angle - 60) <= orb) {
+                    aspectType = 'sextile';
+                    aspectBadgeText = 'T月 60° N水星（セクスタイル）';
+                } else if (Math.abs(angle - 120) <= orb) {
+                    aspectType = 'trine';
+                    aspectBadgeText = 'T月 120° N水星（トライン）';
+                } else if (Math.abs(angle - 90) <= orb) {
+                    aspectType = 'square';
+                    aspectBadgeText = 'T月 90° N水星（スクエア）';
+                } else if (Math.abs(angle - 180) <= orb) {
+                    aspectType = 'opposition';
+                    aspectBadgeText = 'T月 180° N水星（オポジション）';
+                }
+
+                const sabianIndex = Math.max(0, Math.min(359, transitMercury.totalSabian360 - 1));
+                const sabianText = SABIAN_360[sabianIndex];
+
+                const weekForecast = buildWeekForecast(targetDateVal);
+                const lunarCycle = getLunarCycleInfo(targetDateObj);
+
+                lastCalculatedData = {
+                    natalPlanets,
+                    nMercury,
+                    transitMoon,
+                    transitMercury,
+                    aspectType,
+                    aspectBadgeText,
+                    sabianText,
+                    weekForecast,
+                    lunarCycle,
+                    unknownTime: Boolean(unknownTime)
+                };
+
+                renderAllResults(lastCalculatedData);
+                updateMoonUnknownState();
+            } catch (err) {
+                console.error(err);
+                showError(`計算中にエラーが発生しました：${err.message}`);
+            }
+        }
+
+        function renderAllResults(data) {
+            const isTeen = currentMode === 'teen';
+            const { nMercury, transitMoon, transitMercury, aspectType, aspectBadgeText, sabianText, natalPlanets, weekForecast, lunarCycle } = data;
+
+            // 1. T月 × N水星 予報カード
+            const weatherIconEl = document.getElementById('weather-icon');
+            const forecastTitleEl = document.getElementById('forecast-title');
+            const aspectBadgeEl = document.getElementById('aspect-badge');
+            const forecastMsgEl = document.getElementById('forecast-message-box');
+            const parentAdviceEl = document.getElementById('parent-advice');
+
+            aspectBadgeEl.textContent = aspectBadgeText;
+
+            if (aspectType === 'square' || aspectType === 'opposition') {
+                weatherIconEl.textContent = '🔋';
+                forecastTitleEl.textContent = isTeen
+                    ? '今日は「脳と心の充電日」！無理に動かず休息優先でOK'
+                    : '今日は「充電の日」！おやすみモードでエネルギーをためよう';
+                forecastMsgEl.innerHTML = isTeen
+                    ? `トランジットの月（${transitMoon.sign.name}）があなたの思考を表すネイタル水星（${nMercury.sign.name}）とハードな角度を作っています。頭が疲れやすかったり、考えがまとまりにくかったりする星回りです。「今日は休む日」と決めて、好きな音楽を聴いたりベッドでゴロゴロしたりして脳を休ませるのが一番の開運アクションです。`
+                    : `きょうのおつきさま（${transitMoon.sign.name}）と、きみのあたまの星・水星（${nMercury.sign.name}）がちょっとおつかれモードの角度だよ。むりしてべんきょうしなくてだいじょうぶ！「きょうはパワーをためる日」にして、すきなことをしてゆっくりすごそうね。`;
+                parentAdviceEl.textContent = isTeen
+                    ? 'T月がN水星とハードアスペクトをとる日は、思考や感情の摩擦が起きやすく「やりたくても頭が回らない」状態になりがちです。声かけは最小限にし、「今日は充電日だから休んで大丈夫」と伝えてあげてください。'
+                    : 'お子さまの頭や心が少しお疲れを感じやすい星回りです。「やらないこと」を責めるのではなく、「今日は星が充電をおすすめしている日なんだって」と親子で笑い合える空気を作ってみてください。';
+            } else if (aspectType === 'sextile' || aspectType === 'trine') {
+                weatherIconEl.textContent = '🌤️';
+                forecastTitleEl.textContent = isTeen
+                    ? '心が安定している日。少しだけ新しいことに触れてみよう'
+                    : 'こころがぽかぽか安定の日！すこしだけあたらしいことにふれてみよう';
+                forecastMsgEl.innerHTML = isTeen
+                    ? `トランジットの月（${transitMoon.sign.name}）とネイタル水星（${nMercury.sign.name}）がスムーズなソフトアスペクトを形成中。感情と知性のバランスが取りやすく、気負わずに興味のあるテーマへ手を伸ばしやすい日です。5分だけ気になることを覗いてみるのもおすすめです。`
+                    : `きょうのおつきさま（${transitMoon.sign.name}）ときみの水星（${nMercury.sign.name}）がなかよしの角度！こころが落ち着いているから、きになるクイズやずかんを「ちょっとだけ」のぞいてみるとたのしいかも！`;
+                parentAdviceEl.textContent = isTeen
+                    ? '気負わずに取り組める穏やかな流れがあります。長時間の学習を促すよりも、「5分だけやってみる？」「気になるテーマある？」と軽い選択肢を提示するとスムーズに入りやすくなります。'
+                    : '心が落ち着きやすい日ですので、お子さまが「これ面白そう」と興味を見せた瞬間にそっと寄り添い、小さな「できた！」を一緒に喜ぶと自信につながります。';
+            } else if (aspectType === 'conjunction') {
+                weatherIconEl.textContent = '✨';
+                forecastTitleEl.textContent = isTeen
+                    ? '感情と知性が重なる日。自分の「知りたい」に素直になろう'
+                    : 'きもちとあたまがピタッと重なる日！「しりたい！」をたいせつにしよう';
+                forecastMsgEl.innerHTML = isTeen
+                    ? `トランジットの月がネイタル水星（${nMercury.sign.name}）に重なるタイミング。自分の本音や「これを知りたい・話したい」という感覚がダイレクトに浮かび上がりやすい日です。義務感よりも、自分の好奇心が向く方へ少しだけ意識を向けてみてください。`
+                    : `きょうはきみの水星（${nMercury.sign.name}）におつきさまがぎゅっと近づく特別な日！きみの「これすき！」「なんでだろう？」というきもちが、そのままステキなヒントになるよ。`;
+                parentAdviceEl.textContent = isTeen
+                    ? '自分自身の感覚や思考に意識が向きやすい日です。親御さんからの指示よりも、お子さま自身が「これならやってみたい」と感じるテーマを尊重してあげると良い流れに乗れます。'
+                    : 'お子さまの「やってみたい！」「これ見て！」という気持ちが湧きやすい日です。もし少し敏感になっている様子があれば、無理に誘導せず見守る姿勢を大切にしてください。';
+            } else {
+                weatherIconEl.textContent = '🌙';
+                forecastTitleEl.textContent = isTeen
+                    ? 'マイペースに過ごせる日。自分のリズムを大切にしよう'
+                    : 'じぶんのペースでだいじょうぶな日！すきなことから始めよう';
+                forecastMsgEl.innerHTML = isTeen
+                    ? `今日のトランジットの月（${transitMoon.sign.name}）とネイタル水星（${nMercury.sign.name}）は、それぞれのペースを保ちやすい配置です。周りと比べる必要はありません。今の自分の体調や気分に合わせて、できることを無理なく選んでいきましょう。`
+                    : `きょうはきみのペースをたいせつにできる日だよ。ほかの人とくらべなくてだいじょうぶ！いまのきぶんに合うことを、ちいさくひとつだけたのしんでみよう。`;
+                parentAdviceEl.textContent = isTeen
+                    ? '焦らず自分のリズムを整えやすい日です。日課にこだわらず、午後の時間帯や気分が乗ったタイミングなど、お子さまが動きやすいリズムを尊重してみてください。'
+                    : '「毎日同じ時間に机へ」という形にこだわらず、お子さまがホッとできる時間帯ややり方で、ほんの少しでも心地よい時間が作れたら十分花丸です。';
+            }
+
+            // 2. T水星サビアンシンボル＆ミッション表示
+            document.getElementById('sabian-degree-title').textContent =
+                `${transitMercury.sign.name} ${transitMercury.sabianDegree}度（全360度中 第${transitMercury.totalSabian360}番）`;
+            document.getElementById('sabian-number-badge').textContent =
+                `T水星：${transitMercury.sign.symbol} ${transitMercury.sign.name} ${transitMercury.sabianDegree}°`;
+            document.getElementById('sabian-meaning').textContent = sabianText;
+
+            const signMission = SIGN_MISSIONS[transitMercury.sign.name] || SIGN_MISSIONS['牡羊座'];
+            const modeMission = isTeen ? signMission.teen : signMission.kids;
+            document.getElementById('mission-tag').lastElementChild.textContent =
+                isTeen ? '今日の5分ミニ・ワーク' : '今日の5分ミッション';
+            document.getElementById('mission-time-guide').textContent =
+                isTeen ? '目安：3〜5分（できたらOK）' : 'めやす：3〜5分';
+            document.getElementById('mission-action').textContent = modeMission.action;
+            document.getElementById('mission-example').textContent = modeMission.example;
+
+            // 3. ② 学習タイム＆環境処方箋（N月・N水星のエレメント別）
+            const moonSign = natalPlanets.Moon.sign;
+            const mercSign = natalPlanets.Mercury.sign;
+            const moonPresc = ELEMENT_PRESCRIPTIONS[moonSign.element].moon[isTeen ? 'teen' : 'kids'];
+            const mercPresc = ELEMENT_PRESCRIPTIONS[mercSign.element].mercury[isTeen ? 'teen' : 'kids'];
+
+            document.getElementById('env-element-badge').textContent =
+                `月：${moonSign.elementName}（${moonSign.name}）／ 水星：${mercSign.elementName}（${mercSign.name}）`;
+            document.getElementById('moon-element-tag').textContent =
+                `${moonSign.elementName}（${moonSign.symbol} ${moonSign.name}）`;
+            document.getElementById('moon-env-title').textContent = moonPresc.title;
+            document.getElementById('moon-env-desc').textContent = moonPresc.desc;
+
+            document.getElementById('mercury-element-tag').textContent =
+                `${mercSign.elementName}（${mercSign.symbol} ${mercSign.name}）`;
+            document.getElementById('mercury-env-title').textContent = mercPresc.title;
+            document.getElementById('mercury-env-desc').textContent = mercPresc.desc;
+
+            // 4. カレンダー機能（1週間リズム ＆ 1か月ルナサイクル）
+            renderWeekCalendar(weekForecast);
+            renderLunarCycle(lunarCycle);
+
+            // 5. ネイタル4天体「学びの取扱説明書」
+            const natalGrid = document.getElementById('natal-grid');
+            natalGrid.innerHTML = '';
+            ['Sun', 'Mercury', 'Venus', 'Mars'].forEach(pKey => {
+                const info = natalPlanets[pKey];
+                const role = PLANET_ROLES[pKey];
+                const roleLabel = isTeen ? role.labelTeen : role.labelKids;
+                const cardClass = isTeen
+                    ? 'p-4 rounded-2xl bg-slate-800/80 border border-slate-700 space-y-1.5'
+                    : 'p-4 rounded-2xl bg-purple-50/50 border border-purple-100 space-y-1.5';
+                const titleClass = isTeen ? 'text-sm font-bold text-white' : 'text-sm font-bold text-slate-800';
+                const descClass = isTeen ? 'text-xs text-slate-300 leading-relaxed' : 'text-xs text-slate-600 leading-relaxed';
+
+                const card = document.createElement('div');
+                card.className = cardClass;
+                card.innerHTML = `
+                    <div class="flex items-center justify-between gap-2">
+                        <span class="text-xs font-bold ${isTeen ? 'text-purple-300' : 'text-purple-700'}">
+                            ${role.icon} ${role.name}（${roleLabel}）
+                        </span>
+                        <span class="text-xs font-bold px-2.5 py-0.5 rounded-full ${isTeen ? 'bg-slate-900 text-amber-300 border border-slate-700' : 'bg-white text-purple-800 border border-purple-200'}">
+                            ${info.sign.symbol} ${info.sign.name} ${info.sabianDegree}°
+                        </span>
+                    </div>
+                    <p class="${titleClass}">キーワード：${info.sign.quality}</p>
+                    <p class="${descClass}">おすすめの学び方：${info.sign.style}</p>
+                `;
+                natalGrid.appendChild(card);
+            });
+        }
+
+        // ==========================================
+        // 6. カレンダー描画関数（1週間リズム ＆ 1か月ルナサイクル）
+        // ==========================================
+        function switchCalendarTab(tabName) {
+            activeCalendarTab = tabName === 'month' ? 'month' : 'week';
+            const tabWeek = document.getElementById('tab-week');
+            const tabMonth = document.getElementById('tab-month');
+            const viewWeek = document.getElementById('view-week');
+            const viewMonth = document.getElementById('view-month');
+
+            if (activeCalendarTab === 'week') {
+                tabWeek.className = 'px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all bg-violet-600 text-white shadow-xs';
+                tabMonth.className = 'px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all text-slate-600 hover:text-violet-700';
+                viewWeek.classList.remove('hidden');
+                viewMonth.classList.add('hidden');
+            } else {
+                tabMonth.className = 'px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all bg-violet-600 text-white shadow-xs';
+                tabWeek.className = 'px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all text-slate-600 hover:text-violet-700';
+                viewMonth.classList.remove('hidden');
+                viewWeek.classList.add('hidden');
+            }
+        }
+
+        function renderWeekCalendar(weekForecast) {
+            const isTeen = currentMode === 'teen';
+            const rangeBadge = document.getElementById('week-range-badge');
+            const weekGrid = document.getElementById('week-grid');
+            if (!weekGrid) return;
+
+            if (rangeBadge) {
+                rangeBadge.textContent = `${weekForecast.mondayLabel} 〜 ${weekForecast.sundayLabel}`;
+            }
+
+            const elementColors = {
+                fire: { bg: 'bg-orange-50/90 border-orange-200', badge: 'bg-orange-100 text-orange-800', icon: '🔥' },
+                earth: { bg: 'bg-emerald-50/90 border-emerald-200', badge: 'bg-emerald-100 text-emerald-800', icon: '🌱' },
+                air: { bg: 'bg-sky-50/90 border-sky-200', badge: 'bg-sky-100 text-sky-800', icon: '🍃' },
+                water: { bg: 'bg-indigo-50/90 border-indigo-200', badge: 'bg-indigo-100 text-indigo-800', icon: '💧' }
+            };
+
+            weekGrid.innerHTML = '';
+            weekForecast.items.forEach(item => {
+                const elKey = item.moonInfo.sign.element;
+                const colors = elementColors[elKey];
+                const guide = TRANSIT_MOON_ELEMENT_GUIDE[elKey];
+                const descText = isTeen ? guide.teen : guide.kids;
+
+                const card = document.createElement('div');
+                card.className = `p-3 rounded-2xl border ${colors.bg} text-slate-800 space-y-1.5 transition-all ${item.isSelected ? 'ring-2 ring-violet-500 shadow-sm' : ''}`;
+                card.innerHTML = `
+                    <div class="flex items-center justify-between gap-1">
+                        <span class="text-xs font-bold text-slate-800">${item.label}</span>
+                        ${item.isSelected ? '<span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-violet-600 text-white">選択日</span>' : ''}
+                    </div>
+                    <div class="flex items-center gap-1.5">
+                        <span class="text-sm">${colors.icon}</span>
+                        <span class="text-xs font-bold text-slate-700">${item.moonInfo.sign.symbol} ${item.moonInfo.sign.name}</span>
+                    </div>
+                    <span class="inline-block text-[10px] font-bold px-2 py-0.5 rounded-full ${colors.badge}">
+                        ${guide.tag}
+                    </span>
+                    <p class="text-[11px] text-slate-600 leading-snug pt-0.5">${descText}</p>
+                `;
+                weekGrid.appendChild(card);
+            });
+        }
+
+        function renderLunarCycle(lunarCycle) {
+            const isTeen = currentMode === 'teen';
+            const iconEl = document.getElementById('lunar-phase-icon');
+            const ageEl = document.getElementById('lunar-age-num');
+            const titleEl = document.getElementById('lunar-phase-title');
+            const nextEventsEl = document.getElementById('lunar-next-events');
+            const gridEl = document.getElementById('lunar-phases-grid');
+            if (!gridEl) return;
+
+            if (iconEl) iconEl.textContent = lunarCycle.phase.icon;
+            if (ageEl) ageEl.textContent = lunarCycle.lunarAge;
+            if (titleEl) titleEl.textContent = lunarCycle.phase.name;
+            if (nextEventsEl) {
+                nextEventsEl.textContent = `次の満月まで約${lunarCycle.daysToFull}日 ／ 新月まで約${lunarCycle.daysToNew}日`;
+            }
+
+            gridEl.innerHTML = '';
+            LUNAR_CYCLE_PHASES.forEach(p => {
+                const isCurrent = p.id === lunarCycle.phase.id;
+                const desc = isTeen ? p.teen : p.kids;
+                const card = document.createElement('div');
+                card.className = isCurrent
+                    ? 'p-4 rounded-2xl bg-violet-50 border-2 border-violet-500 text-slate-800 space-y-1.5 shadow-xs'
+                    : 'p-4 rounded-2xl bg-slate-50/90 border border-slate-200/80 text-slate-800 space-y-1.5 opacity-80';
+                card.innerHTML = `
+                    <div class="flex items-center justify-between gap-2">
+                        <span class="text-xs font-bold text-violet-900 flex items-center gap-1.5">
+                            <span class="text-lg">${p.icon}</span> ${p.name}
+                        </span>
+                        ${isCurrent
+                            ? '<span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-violet-600 text-white shrink-0">いまココ！</span>'
+                            : `<span class="text-[10px] font-medium text-slate-500 shrink-0">${p.badge}</span>`
+                        }
+                    </div>
+                    <p class="text-xs text-slate-600 leading-relaxed">${desc}</p>
+                `;
+                gridEl.appendChild(card);
+            });
+        }
+
+        // ==========================================
+        // 7. クエスト達成＆2段構えご褒美（雑学カード ＋ おうちご褒美チケット 50PTごと）
+        // ==========================================
+        function renderQuestStatsUI() {
+            const count = loadQuestCount();
+            const points = count * 10;
+            const isTeen = currentMode === 'teen';
+
+            const countEl = document.getElementById('quest-count-num');
+            const expEl = document.getElementById('quest-exp-num');
+            const nextGoalEl = document.getElementById('quest-next-goal-text');
+            const encourageEl = document.getElementById('quest-encourage-text');
+            const btn = document.getElementById('btn-quest-complete');
+
+            if (countEl) countEl.textContent = String(count);
+            if (expEl) expEl.textContent = String(points);
+
+            const remFor50 = 5 - (count % 5 || 5);
+            const nextTicketPt = Math.min(500, (Math.floor(points / 50) + 1) * 50);
+
+            if (nextGoalEl) {
+                if (points < 500) {
+                    nextGoalEl.textContent = `あと ${remFor50} 回クリア（次の ${nextTicketPt}PT）で「ご褒美チケット」＆「雑学カード」ゲット！`;
+                } else {
+                    nextGoalEl.textContent = `全10段階（500PT）のご褒美チケット達成済み！5回ごとの雑学コレクションも継続中`;
+                }
+            }
+
+            if (encourageEl) {
+                encourageEl.textContent = isTeen
+                    ? '少しでも取り組めたら記録しましょう（1回＝10PT）。50PT（5回）ごとにご褒美チケット＆雑学カードが解放されます。'
+                    : 'ちょっとでもできたら、ボタンをおしてスタンプをためよう！5回（50PT）ごとにご褒美チケット＆雑学カードがもらえるよ！';
+            }
+
+            if (btn) {
+                btn.innerHTML = isTeen
+                    ? '<span>✨ ミッション完了を記録（＋10 PT）</span>'
+                    : '<span>✨ クエストクリア！（できたよ）</span>';
+            }
+        }
+
+        function completeQuest() {
+            const prevCount = loadQuestCount();
+            const newCount = prevCount + 1;
+            const newPoints = newCount * 10;
+            saveQuestCount(newCount);
+
+            renderQuestStatsUI();
+
+            const isTeen = currentMode === 'teen';
+            const celBox = document.getElementById('quest-celebration-box');
+            const celTitle = document.getElementById('celebration-title');
+            const celSub = document.getElementById('celebration-sub');
+            const ticketPopup = document.getElementById('reward-ticket-popup');
+            const triviaPopup = document.getElementById('reward-trivia-popup');
+
+            if (celBox) celBox.classList.remove('hidden');
+
+            if (celTitle) {
+                celTitle.textContent = isTeen
+                    ? `ミッション完了！＋10 PT 獲得（累計 ${newPoints} PT / ${newCount} 回目）`
+                    : `すごい！！＋10 PT ゲット！（ぜんぶで ${newCount} 回クリア・${newPoints} PT）`;
+            }
+            if (celSub) {
+                celSub.textContent = isTeen
+                    ? '自分のペースで積み重ねた小さな一歩が、確かな自信につながります。'
+                    : 'ちいさな「できた！」が、きみの星をキラキラかがやかせるよ！きょうもよくがんばったね！';
+            }
+
+            // 50PT〜500PT ご褒美チケットチェック（50, 100, 150, ..., 500）
+            const tickets = loadRewardTickets();
+            const matchedTicket = tickets.find(t => Number(t.pt) === newPoints);
+            if (ticketPopup) {
+                if (matchedTicket) {
+                    ticketPopup.classList.remove('hidden');
+                    document.getElementById('popup-ticket-icon').textContent = matchedTicket.icon || '🎁';
+                    document.getElementById('popup-ticket-badge').textContent = `🎊 ${matchedTicket.pt}PT達成！おうちご褒美チケット獲得！`;
+                    document.getElementById('popup-ticket-title').textContent = matchedTicket.title;
+                    document.getElementById('popup-ticket-desc').textContent = matchedTicket.desc;
+                } else {
+                    ticketPopup.classList.add('hidden');
+                }
+            }
+
+            // 5回ごとの「へぇ〜！」雑学カード解放チェック（5, 10, 15, ...）
+            if (triviaPopup) {
+                if (newCount % 5 === 0) {
+                    const pool = isTeen ? TRIVIA_JUNIOR_HIGH : TRIVIA_ELEMENTARY;
+                    const unlockedIds = loadUnlockedTriviaIds();
+                    const unlockIndex = ((newCount / 5) - 1) % pool.length;
+                    const cardObj = pool[unlockIndex];
+                    const uniqueKey = `${isTeen ? 'teen' : 'kids'}_${unlockIndex}`;
+                    if (!unlockedIds.includes(uniqueKey)) {
+                        unlockedIds.push(uniqueKey);
+                        saveUnlockedTriviaIds(unlockedIds);
+                    }
+
+                    triviaPopup.classList.remove('hidden');
+                    document.getElementById('popup-trivia-badge').textContent =
+                        `✨ ${newCount}回達成ボーナス！新しい雑学カード解放！`;
+                    document.getElementById('popup-trivia-num').textContent = `No.${unlockIndex + 1}`;
+                    document.getElementById('popup-trivia-title').textContent = `💡 ${cardObj.title}`;
+                    document.getElementById('popup-trivia-text').textContent = cardObj.text;
+                } else {
+                    triviaPopup.classList.add('hidden');
+                }
+            }
+
+            renderRewardTicketsPanel();
+            renderTriviaGrid();
+        }
+
+        function toggleCollectionPanel(panelName) {
+            const target = panelName === 'trivia' ? 'trivia' : 'tickets';
+            // すでに開いているボタンをもう一度押したら閉じる
+            activeCollectionPanel = (activeCollectionPanel === target) ? null : target;
+
+            const btnTickets = document.getElementById('btn-toggle-tickets');
+            const btnTrivia = document.getElementById('btn-toggle-trivia');
+            const arrowTickets = document.getElementById('arrow-tickets');
+            const arrowTrivia = document.getElementById('arrow-trivia');
+            const panelTickets = document.getElementById('panel-tickets');
+            const panelTrivia = document.getElementById('panel-trivia');
+
+            if (activeCollectionPanel === 'tickets') {
+                btnTickets.className = 'px-3 py-2 rounded-xl text-xs font-bold bg-amber-500 text-white shadow-2xs transition-all flex items-center gap-1';
+                btnTrivia.className = 'px-3 py-2 rounded-xl text-xs font-bold bg-white text-indigo-700 border border-indigo-200 hover:bg-indigo-50 transition-all flex items-center gap-1';
+                if (arrowTickets) arrowTickets.textContent = '▲閉じる';
+                if (arrowTrivia) arrowTrivia.textContent = '▼見る';
+                panelTickets.classList.remove('hidden');
+                panelTrivia.classList.add('hidden');
+            } else if (activeCollectionPanel === 'trivia') {
+                btnTrivia.className = 'px-3 py-2 rounded-xl text-xs font-bold bg-indigo-600 text-white shadow-2xs transition-all flex items-center gap-1';
+                btnTickets.className = 'px-3 py-2 rounded-xl text-xs font-bold bg-white text-amber-700 border border-amber-300 hover:bg-amber-50 transition-all flex items-center gap-1';
+                if (arrowTrivia) arrowTrivia.textContent = '▲閉じる';
+                if (arrowTickets) arrowTickets.textContent = '▼見る';
+                panelTrivia.classList.remove('hidden');
+                panelTickets.classList.add('hidden');
+            } else {
+                btnTickets.className = 'px-3 py-2 rounded-xl text-xs font-bold bg-white text-amber-700 border border-amber-300 hover:bg-amber-50 shadow-2xs transition-all flex items-center gap-1';
+                btnTrivia.className = 'px-3 py-2 rounded-xl text-xs font-bold bg-white text-indigo-700 border border-indigo-200 hover:bg-indigo-50 transition-all flex items-center gap-1';
+                if (arrowTickets) arrowTickets.textContent = '▼見る';
+                if (arrowTrivia) arrowTrivia.textContent = '▼見る';
+                panelTickets.classList.add('hidden');
+                panelTrivia.classList.add('hidden');
+            }
+        }
+
+        function renderRewardTicketsPanel() {
+            const container = document.getElementById('panel-tickets');
+            const unlockedCountEl = document.getElementById('ticket-unlocked-count');
+            if (!container) return;
+
+            const tickets = loadRewardTickets();
+            const points = loadQuestCount() * 10;
+            const usedMap = loadUsedTickets();
+
+            let unlockedTotal = 0;
+            container.innerHTML = '';
+
+            tickets.forEach(ticket => {
+                const isUnlocked = points >= Number(ticket.pt);
+                if (isUnlocked) unlockedTotal++;
+                const isUsed = Boolean(usedMap[ticket.pt]);
+
+                const card = document.createElement('div');
+                card.className = isUnlocked
+                    ? `p-3 rounded-2xl border ${isUsed ? 'bg-slate-100 border-slate-200 opacity-65' : 'bg-white border-amber-300 shadow-2xs'} flex items-start justify-between gap-2.5`
+                    : 'p-3 rounded-2xl border border-slate-200/80 bg-slate-100/60 opacity-60 flex items-start justify-between gap-2.5';
+
+                card.innerHTML = `
+                    <div class="flex items-start gap-2.5">
+                        <span class="text-2xl shrink-0">${isUnlocked ? (ticket.icon || '🎁') : '🔒'}</span>
+                        <div>
+                            <div class="flex items-center gap-1.5 flex-wrap">
+                                <span class="text-[10px] font-black px-2 py-0.5 rounded-full ${isUnlocked ? 'bg-amber-100 text-amber-800' : 'bg-slate-200 text-slate-600'}">${ticket.pt} PT</span>
+                                ${isUsed ? '<span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-300 text-slate-700">使用済み</span>' : ''}
+                            </div>
+                            <p class="text-xs font-bold text-slate-800 mt-1 ${isUsed ? 'line-through text-slate-500' : ''}">${escapeHtml(ticket.title)}</p>
+                            <p class="text-[11px] text-slate-600 mt-0.5 leading-snug">${escapeHtml(ticket.desc)}</p>
+                        </div>
+                    </div>
+                    ${isUnlocked ? `
+                        <button type="button" onclick="toggleTicketUsed(${ticket.pt})"
+                            class="text-[11px] font-bold px-2.5 py-1 rounded-xl shrink-0 border transition-all ${isUsed ? 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50' : 'bg-rose-50 text-rose-600 border-rose-200 hover:bg-rose-100'}">
+                            ${isUsed ? '戻す' : '使う'}
+                        </button>
+                    ` : ''}
+                `;
+                container.appendChild(card);
+            });
+
+            if (unlockedCountEl) unlockedCountEl.textContent = String(unlockedTotal);
+        }
+
+        function toggleTicketUsed(pt) {
+            const usedMap = loadUsedTickets();
+            usedMap[pt] = !usedMap[pt];
+            saveUsedTickets(usedMap);
+            renderRewardTicketsPanel();
+        }
+
+        function renderTriviaGrid() {
+            const grid = document.getElementById('trivia-grid');
+            const countEl = document.getElementById('trivia-unlocked-count');
+            if (!grid) return;
+
+            const isTeen = currentMode === 'teen';
+            const pool = isTeen ? TRIVIA_JUNIOR_HIGH : TRIVIA_ELEMENTARY;
+            const prefix = isTeen ? 'teen' : 'kids';
+            const unlockedIds = loadUnlockedTriviaIds();
+            const questCount = loadQuestCount();
+            const autoUnlockedByQuest = Math.floor(questCount / 5);
+
+            let unlockedNum = 0;
+            grid.innerHTML = '';
+
+            pool.forEach((item, idx) => {
+                const key = `${prefix}_${idx}`;
+                const isUnlocked = unlockedIds.includes(key) || idx < autoUnlockedByQuest;
+                if (isUnlocked) unlockedNum++;
+
+                const div = document.createElement('div');
+                if (isUnlocked) {
+                    div.className = 'p-3 rounded-2xl bg-white border border-indigo-200 shadow-2xs space-y-1';
+                    div.innerHTML = `
+                        <div class="flex items-center justify-between">
+                            <span class="text-[10px] font-bold text-indigo-600">No.${idx + 1}</span>
+                            <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700">解放済み</span>
+                        </div>
+                        <p class="text-xs font-bold text-slate-800">💡 ${escapeHtml(item.title)}</p>
+                        <p class="text-[11px] text-slate-600 leading-relaxed">${escapeHtml(item.text)}</p>
+                    `;
+                } else {
+                    div.className = 'p-3 rounded-2xl bg-slate-100/80 border border-slate-200/70 opacity-65 space-y-1';
+                    div.innerHTML = `
+                        <div class="flex items-center justify-between">
+                            <span class="text-[10px] font-bold text-slate-500">No.${idx + 1}</span>
+                            <span class="text-[10px] font-bold text-slate-500">🔒 クエスト5回ごとに解放</span>
+                        </div>
+                        <p class="text-xs font-bold text-slate-500">？？？（まだひみつの雑学）</p>
+                    `;
+                }
+                grid.appendChild(div);
+            });
+
+            if (countEl) countEl.textContent = String(unlockedNum);
+        }
+
+        // ==========================================
+        // 8. 保護者用：ご褒美チケット編集モーダル
+        // ==========================================
+        function openTicketEditor() {
+            const modal = document.getElementById('ticket-editor-modal');
+            const listEl = document.getElementById('ticket-editor-list');
+            if (!modal || !listEl) return;
+
+            const tickets = loadRewardTickets();
+            listEl.innerHTML = '';
+
+            tickets.forEach((t, idx) => {
+                const row = document.createElement('div');
+                row.className = 'p-3.5 rounded-2xl bg-slate-50 border border-slate-200 grid grid-cols-1 sm:grid-cols-12 gap-2.5 items-center';
+                row.innerHTML = `
+                    <div class="sm:col-span-2 flex items-center gap-2">
+                        <span class="text-xs font-black text-amber-700 bg-amber-100 px-2 py-1 rounded-lg">${t.pt}PT</span>
+                        <input type="text" id="edit-ticket-icon-${idx}" value="${escapeHtml(t.icon || '🎁')}" maxlength="4"
+                            class="w-12 text-center bg-white border border-slate-300 rounded-xl px-1.5 py-1.5 text-sm" aria-label="${t.pt}PTのアイコン">
+                    </div>
+                    <div class="sm:col-span-4">
+                        <label class="block text-[10px] font-bold text-slate-500 mb-0.5">チケット名</label>
+                        <input type="text" id="edit-ticket-title-${idx}" value="${escapeHtml(t.title)}"
+                            class="w-full bg-white border border-slate-300 rounded-xl px-2.5 py-1.5 text-xs font-bold text-slate-800">
+                    </div>
+                    <div class="sm:col-span-6">
+                        <label class="block text-[10px] font-bold text-slate-500 mb-0.5">説明・お約束メモ</label>
+                        <input type="text" id="edit-ticket-desc-${idx}" value="${escapeHtml(t.desc)}"
+                            class="w-full bg-white border border-slate-300 rounded-xl px-2.5 py-1.5 text-xs text-slate-700">
+                    </div>
+                `;
+                listEl.appendChild(row);
+            });
+
+            modal.classList.remove('hidden');
+            lucide.createIcons();
+        }
+
+        function closeTicketEditor() {
+            const modal = document.getElementById('ticket-editor-modal');
+            if (modal) modal.classList.add('hidden');
+        }
+
+        function saveTicketEdits() {
+            const current = loadRewardTickets();
+            const updated = current.map((t, idx) => {
+                const iconVal = document.getElementById(`edit-ticket-icon-${idx}`)?.value.trim() || t.icon;
+                const titleVal = document.getElementById(`edit-ticket-title-${idx}`)?.value.trim() || t.title;
+                const descVal = document.getElementById(`edit-ticket-desc-${idx}`)?.value.trim() || t.desc;
+                return {
+                    pt: t.pt,
+                    icon: iconVal,
+                    title: titleVal,
+                    desc: descVal
+                };
+            });
+
+            saveRewardTickets(updated);
+            renderRewardTicketsPanel();
+            closeTicketEditor();
+        }
+
+        function resetTicketsToDefault() {
+            const fresh = DEFAULT_REWARD_TICKETS.map(item => ({ ...item }));
+            saveRewardTickets(fresh);
+            openTicketEditor();
+            renderRewardTicketsPanel();
+        }
+
+        function escapeHtml(str) {
+            return String(str || '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
+        // ==========================================
+        // 9. 初期化処理
+        // ==========================================
+        function initApp() {
+            setToday();
+            toggleBirthTime();
+            renderQuestStatsUI();
+            renderRewardTicketsPanel();
+            renderTriviaGrid();
+            calculateHoroscope(true);
+            if (typeof lucide !== 'undefined') {
+                lucide.createIcons();
+            }
+        }
+
+        window.addEventListener('load', initApp);
+
+// 鍵が正しい時だけ script.js を読み込む
+  if (localStorage.getItem("app_unlocked_status") === "neroli") { // ←ここも設定した鍵と同じにする
+    const s = document.createElement("script");
+    s.src = "script.js";
+    document.body.appendChild(s);
+  }
+
+    </script>
+</body>
+<!-- ▼ クレジット表記（画面最下部に固定） ▼ -->
+<div style="
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  text-align: center;
+  font-size: 11px;
+  line-height: 1.4;
+  color: #ffeb3b;
+  background: rgba(15, 23, 42, 0.92);
+  padding: 6px 10px calc(6px + env(safe-area-inset-bottom));
+  z-index: 99999;
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+  box-sizing: border-box;
+  pointer-events: none;
+">
+  © 2026 ネロリの小部屋 / note購入者専用アプリ
+</div>
+
+
+</html>
